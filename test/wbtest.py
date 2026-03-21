@@ -172,7 +172,7 @@ ax1.imshow(frame_array)
 #frame array rgb histograms
 for i, color in enumerate(colors):
     ax = fig.add_subplot(ploth, plotw, 2 + i)
-    ax.set_title(f'{color.upper()} Channel Histogram')
+    ax.set_title(f'{color.upper()} Channel')
     ax.hist(frame_array[:, :, i].ravel(), bins=256, range=(0, 256), color=color, alpha=0.5)
     ax.set_xlim([0, 256])
     ax.set_ylim([0, 80000])  # Adjust the y-axis limit to see higher value spikes

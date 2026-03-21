@@ -76,7 +76,7 @@ if np.abs(median_diff) <= 10:
 
 bit_lift = 0 +((2*lift-100) / 100)
 #bit_gamma = 1 + ((2*gamma-100) / 100)
-bit_gamma = gamma
+bit_gamma = 2
 bit_gain = 1 + ((2*gain-100) / 100)
 if bit_gamma == 0:  
     bit_gamma = 0.01
