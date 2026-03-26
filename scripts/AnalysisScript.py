@@ -1,6 +1,5 @@
 import sys
 import cv2 as cv #OpenCV CPU only, for preview (only)
-import numpy as np #nom nom pie
 import cupy as cp #CuPy for GPU acceleration
 import av #PyAV ffmpeg wrapper
 import time #this is fucking obvious
