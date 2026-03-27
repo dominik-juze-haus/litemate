@@ -1,6 +1,8 @@
+#### !!!!! RUNS ON PYTHON 3.6 !!!!!
+
 import lib.Resolve.python_get_resolve as pyResolve #import the python_get_resolve script to get the DaVinci Resolve object
 import lib.Resolve.DaVinciResolveScript as ResolveScript #import the DaVinci Resolve scripting module
-import scripts.AnalysisScript as AnalysisScript #import the AnalysisScript to use the Analysis class and Playback class
+import Analysis.source.AnalysisScript as AnalysisScript #import the AnalysisScript to use the Analysis class and Playback class
 import numpy as np
 import time
 import tkinter as tk
