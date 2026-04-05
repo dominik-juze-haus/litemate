@@ -87,6 +87,7 @@ class guiBuild(ctk.CTk):
         self.shot_path = filedialog.askopenfilename() #open a file dialog to select a shot
         self.shot_path = os.path.normpath(self.shot_path) #normalize the selected shot path
         self.selected_shot_path_label.configure(text=self.shot_path) #update the selected shot path label with the selected shot path
+        return self.shot_path #return the selected shot path for use in the analysis script
 
     def start_analysis(self):
         selected_analyses = [var.get() for var in self.analysis_selection_tkvar] #get the values of the analysis selection checkboxes
