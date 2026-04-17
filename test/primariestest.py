@@ -2,10 +2,7 @@ import sys
 import cv2 as cv #OpenCV CPU only, for preview (only)
 import numpy as np #nom nom pie
 import cupy as cp #CuPy for GPU acceleration
-<<<<<<< HEAD
 import ffmpeg #ffmpeg
-=======
->>>>>>> 7cc73a0 (DEV 2026-03-26)
 import av #PyAV ffmpeg wrapper
 import time #this is fucking obvious
 import customtkinter as ctk #custom tkinter, pretty
