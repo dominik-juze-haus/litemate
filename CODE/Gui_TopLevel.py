@@ -55,6 +55,12 @@ class guiBuild(ctk.CTk):
                                                      text=" ", font=ctk.CTkFont(size=16)) #label to display the selected shot path
         self.selected_shot_path_label.pack(side="top", padx=20, pady=10) #pack the selected shot path label to the top of the project setup page frame with padding
 
+        self.reference_frame_num_textbox = ctk.CTkEntry(master = self.project_setup_page_frame,
+                                                        placeholder_text="Reference frame number",
+                                                        font=ctk.CTkFont(size=16),
+                                                        fg_color=default_widget_color) #textbox to enter the reference frame number for the analysis
+        self.reference_frame_num_textbox.pack(side="top", padx=20, pady=10) #pack the reference frame number textbox to the top of the project setup page frame with padding 
+
         # --- Analysis selections ---
         #analysis selections frame ----
         self.analysis_selections_frame = ctk.CTkFrame(master = self.project_setup_page_frame) #frame for the analysis selections
@@ -124,8 +130,23 @@ class guiBuild(ctk.CTk):
             print("Selected WB...") #placeholder for starting the white balance analysis
         elif selected_analyses[1]: #if only exposure analysis is selected, print a message (placeholder for starting the exposure analysis)
             print("Selected Exposure...") #placeholder for starting the exposure analysis
+        
+        reference_frame_text = self.reference_frame_num_textbox.get().strip()
 
+        if reference_frame_text == "": #if no reference frame number is entered, show a warning message
+            tk.messagebox.showwarning("No Reference Frame Number", "Please enter a reference frame number.")
+            return
+
+        try:
+            reference_frame_num = int(reference_frame_text)
+        except ValueError:
+            tk.messagebox.showwarning("Invalid Reference Frame Number", "Please enter a valid integer reference frame number.")
+            return
+        
         print("Starting analysis...") #placeholder for starting the analysis, will be replaced with the actual analysis function
+        self.analysis_data = AnalysisScript.Analysis(self.shot_path).analyze_footage(reference_frame_num) #call the analyze_footage function from the Analysis class to perform the analysis on the selected shot with the specified reference frame number and store the results in a variable for use in the GUI
+        print("Analysis completed. Displaying results...") #placeholder for displaying the analysis results, will be replaced with the actual function to display the analysis results in the GUI
+        self.show_analysis_data(self.analysis_data) #call the show_analysis_data function to display the
 
 
     def import_analysis(self):
@@ -154,7 +175,7 @@ class guiBuild(ctk.CTk):
     def show_analysis_data(self, analysis_data):
         
         self.analysis_data = analysis_data #store the analysis data in a variable for use in the GUI
-        
+        print(self.analysis_data) #print the analysis data to the console for testing purposes, will be replaced with the actual function to display the analysis data in the GUI
 
     def external_error_message(self, message):
         tk.messagebox.showerror("Error", message) #function to show an error message in a message box
