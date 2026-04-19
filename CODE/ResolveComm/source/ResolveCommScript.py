@@ -10,6 +10,10 @@ fusion = resolve.Fusion()
 ##footage_path = "I:/CODING/LiteMate/Footage/pyxis_exposure_change.mov"
 
 
+class GetAnalysisSettings:
+    def __init__(self):
+       ### Obtain the analysis setting from an open Davinci timeline
+
 class SendToDaVinci:
     def __init__(self, footage_path, frameID):
         self.footage_path = footage_path #path to the analyzed footage

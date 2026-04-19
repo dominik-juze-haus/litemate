@@ -2,6 +2,8 @@ import customtkinter as ctk
 import tkinter as tk
 from tkinter import filedialog
 import Analysis.source.AnalysisScript as AnalysisScript
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import json
 import os
 
@@ -174,8 +176,47 @@ class guiBuild(ctk.CTk):
 # ----- Plotting the Analysis Data -----
     def show_analysis_data(self, analysis_data):
         
+        #just for testing!!!!
+        selected_analyses = [var.get() for var in self.analysis_selection_tkvar] #get the values of the analysis selection checkboxes
+        
         self.analysis_data = analysis_data #store the analysis data in a variable for use in the GUI
         print(self.analysis_data) #print the analysis data to the console for testing purposes, will be replaced with the actual function to display the analysis data in the GUI
+        
+        # ANALYSIS DATA VARIABLE READOUT
+        Y_median_array = self.analysis_data['Y_median'] #get the Y median array from the analysis data
+        RGB_median_array = self.analysis_data['RGB_median'] #get the RGB median array from the analysis data
+        reference_frame_flag = self.analysis_data['reference_frame_flag'] #get the reference frame flag
+        
+        # CLEAR THE HOME FRAME
+        self.clear_home_frame() #call the function to clear the home frame before displaying the analysis results, will be replaced with a function to clear the home frame when navigating between pages in the GUI
+        
+        # PREPARE SUBPLOT
+        results_plot_fig, graph = plt.subplots() #create a figure for the analysis results plot
+
+        # PREPARE THE GRAPH CANVAS
+        self.graph_canvas = FigureCanvasTkAgg(results_plot_fig, master=self.home) #create a canvas to display the analysis results plot in the GUI
+        self.graph_canvas.get_tk_widget().pack(side="top", fill="both", expand=True) #pack the canvas to fill the entire home frame and allow it to expand
+        
+       
+        if selected_analyses[0]: #if white balance analysis is selected, plot the white balance analysis results
+            graph.plot(RGB_median_array[:, 0], RGB_median_array[:, 1], label='Red', color='red') #plot the red channel median values from the analysis data
+            graph.plot(RGB_median_array[:, 0], RGB_median_array[:, 2], label='Green', color='green') #plot the green channel median values from the analysis data
+            graph.plot(RGB_median_array[:, 0], RGB_median_array[:, 3], label='Blue', color='blue') #plot the blue channel median values from the analysis data
+
+        if selected_analyses[1]: #if exposure analysis is selected, plot the exposure analysis results
+            graph.plot(Y_median_array[:, 0], Y_median_array[:, 1], label='Y Median', color='orange') #plot the Y channel median values from the analysis data
+
+        graph.axvline(x=reference_frame_flag[reference_frame_flag[:, 1] == 1][0, 0], color='k', linestyle='--', label='Reference Frame') #plot a vertical line to indicate the reference frame based on the reference frame flag in the analysis data
+
+        
+        self.graph_canvas.draw() #draw the analysis results plot on the canvas
+        
+
+
+    # ------ Function to clear the home frame ------
+    def clear_home_frame(self):
+        for widget in self.home.winfo_children(): #loop through all the widgets in the home frame
+            widget.destroy() #destroy each widget to clear the home frame, will be replaced with a function to clear the home frame when navigating between pages in the GUI
 
     def external_error_message(self, message):
         tk.messagebox.showerror("Error", message) #function to show an error message in a message box
