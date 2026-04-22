@@ -4,6 +4,7 @@ from tkinter import filedialog
 import Analysis.source.AnalysisScript as AnalysisScript
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+import keyboard
 import json
 import os
 
@@ -57,11 +58,19 @@ class guiBuild(ctk.CTk):
                                                      text=" ", font=ctk.CTkFont(size=16)) #label to display the selected shot path
         self.selected_shot_path_label.pack(side="top", padx=20, pady=10) #pack the selected shot path label to the top of the project setup page frame with padding
 
+        # Reference frame number entry ---
         self.reference_frame_num_textbox = ctk.CTkEntry(master = self.project_setup_page_frame,
                                                         placeholder_text="Reference frame number",
                                                         font=ctk.CTkFont(size=16),
                                                         fg_color=default_widget_color) #textbox to enter the reference frame number for the analysis
         self.reference_frame_num_textbox.pack(side="top", padx=20, pady=10) #pack the reference frame number textbox to the top of the project setup page frame with padding 
+
+        # Threshold entry ---
+        self.threshold_textbox = ctk.CTkEntry(master = self.project_setup_page_frame,
+                                                        placeholder_text="Change detection threshold",
+                                                        font=ctk.CTkFont(size=16),
+                                                        fg_color=default_widget_color) #textbox to enter the change detection threshold for the analysis
+        self.threshold_textbox.pack(side="top", padx=20, pady=10) #pack the threshold textbox to the top of the project setup page frame with padding   
 
         # --- Analysis selections ---
         #analysis selections frame ----
@@ -147,8 +156,10 @@ class guiBuild(ctk.CTk):
         
         print("Starting analysis...") #placeholder for starting the analysis, will be replaced with the actual analysis function
         self.analysis_data = AnalysisScript.Analysis(self.shot_path).analyze_footage(reference_frame_num) #call the analyze_footage function from the Analysis class to perform the analysis on the selected shot with the specified reference frame number and store the results in a variable for use in the GUI
+        
+        self.detection_data = AnalysisScript.Analysis.detect_changes(self, self.analysis_data, threshold=int(self.threshold_textbox.get())) #call the detect_changes function from the Analysis class to perform change detection on the analyzed data with a specified threshold and store the results in a variable for use in the GUI, threshold value is just a placeholder and will be replaced with a value from the GUI later
         print("Analysis completed. Displaying results...") #placeholder for displaying the analysis results, will be replaced with the actual function to display the analysis results in the GUI
-        self.show_analysis_data(self.analysis_data) #call the show_analysis_data function to display the
+        self.show_analysis_data_page(self.detection_data) #call the show_analysis_data function to display the
 
 
     def import_analysis(self):
@@ -171,16 +182,16 @@ class guiBuild(ctk.CTk):
         print(f"Selected analysis results file: {self.analysis_path}") #print the selected analysis results file path, will be replaced with the actual function to import and process the analysis results
         self.analysis_data = AnalysisScript.Analysis.opendata(self, self.analysis_path) #call the opendata function from the Analysis class to load the analysis data from the selected file and store it in a variable for use in the GUI
 
-        self.show_analysis_data(self.analysis_data) #call the show_analysis_data function to display the analysis data in the GUI, will be replaced with the actual function to display the analysis data in the GUI
+        self.show_analysis_data_page(self.analysis_data) #call the show_analysis_data function to display the analysis data in the GUI, will be replaced with the actual function to display the analysis data in the GUI
 
 # ----- Plotting the Analysis Data -----
-    def show_analysis_data(self, analysis_data):
+    def show_analysis_data_page(self, analysis_data):
         
         #just for testing!!!!
         selected_analyses = [var.get() for var in self.analysis_selection_tkvar] #get the values of the analysis selection checkboxes
         
         self.analysis_data = analysis_data #store the analysis data in a variable for use in the GUI
-        print(self.analysis_data) #print the analysis data to the console for testing purposes, will be replaced with the actual function to display the analysis data in the GUI
+        print(self.analysis_data) #print the analysis data to the console for testing purposess, will be replaced with the actual function to display the analysis data in the GUI
         
         # ANALYSIS DATA VARIABLE READOUT
         Y_median_array = self.analysis_data['Y_median'] #get the Y median array from the analysis data
@@ -217,6 +228,52 @@ class guiBuild(ctk.CTk):
     def clear_home_frame(self):
         for widget in self.home.winfo_children(): #loop through all the widgets in the home frame
             widget.destroy() #destroy each widget to clear the home frame, will be replaced with a function to clear the home frame when navigating between pages in the GUI
+
+    # ----- Analysis settings widgets for quick initialization ------
+    def analysis_settings_widgets(self, curr_page_frame):
+        # Reference frame number entry ---
+        self.reference_frame_num_textbox = ctk.CTkEntry(master = curr_page_frame,
+                                                        placeholder_text="Reference frame number",
+                                                        font=ctk.CTkFont(size=16),
+                                                        fg_color=default_widget_color) #textbox to enter the reference frame number for the analysis
+        self.reference_frame_num_textbox.pack(side="top", padx=20, pady=10) #pack the reference frame number textbox to the top of the project setup page frame with padding 
+
+        # Threshold entry ---
+        self.threshold_textbox = ctk.CTkEntry(master = curr_page_frame,
+                                                        placeholder_text="Change detection threshold",
+                                                        font=ctk.CTkFont(size=16),
+                                                        fg_color=default_widget_color) #textbox to enter the change detection threshold for the analysis
+        self.threshold_textbox.pack(side="top", padx=20, pady=10) #pack the threshold textbox to the top of the project setup page frame with padding   
+
+        # --- Analysis selections ---
+        #analysis selections frame ----
+        self.analysis_selections_frame = ctk.CTkFrame(master = curr_page_frame) #frame for the analysis selections
+        self.analysis_selections_frame.configure(bg_color=default_bg_color, fg_color=default_fg_color) #configure the background color of the analysis selections frame
+        self.analysis_selections_frame.pack(side="top") #pack the analysis selections frame to the top of the project setup page frame, no padding
+                
+        #wb analysis checkbox ----
+        self.analysis_selection_tkvar = [ctk.BooleanVar(), ctk.BooleanVar()] #variables for the analysis selection checkboxes
+
+        self.wb_analysis_checkbox = ctk.CTkCheckBox(master = self.analysis_selections_frame, 
+                                                    text="WB Analysis", 
+                                                    font=ctk.CTkFont(size=20), 
+                                                    fg_color=default_widget_color,
+                                                    variable=self.analysis_selection_tkvar[0]) #checkbox for white balance analysis
+        self.wb_analysis_checkbox.grid(row=0, column=0, padx=20, pady=10) #alignment
+
+        #exp analysis checkbox ----
+        self.exp_analysis_checkbox = ctk.CTkCheckBox(master = self.analysis_selections_frame, 
+                                                     text="Exposure Analysis", 
+                                                     font=ctk.CTkFont(size=20), 
+                                                     fg_color=default_widget_color,
+                                                     variable=self.analysis_selection_tkvar[1]) #checkbox for exposure analysis
+        self.exp_analysis_checkbox.grid(row=0, column=1, padx=20, pady=10) #alignment
+
+
+        # Analysis button frame ----
+        self.analysis_button_frame = ctk.CTkFrame(master = curr_page_frame) #frame for the analysis button
+        self.analysis_button_frame.configure(bg_color=default_bg_color, fg_color=default_fg_color) #configure the background color of the analysis button frame
+        self.analysis_button_frame.pack(side="top") #pack the analysis button frame to fill the entire project setup page frame and allow it to expand
 
     def external_error_message(self, message):
         tk.messagebox.showerror("Error", message) #function to show an error message in a message box

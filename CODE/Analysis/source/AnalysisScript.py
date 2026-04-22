@@ -2,14 +2,13 @@
 
 import sys
 
-from turtle import width # sys for system functions
 import cupy as cp #CuPy for GPU acceleration
 import time #this is fucking obvious
 import customtkinter as ctk #custom tkinter, pretty
 import keyboard #keyboard input
 import matplotlib.pyplot as plt #plotting
 import os #os
-import torch #pytorch
+#import torch #pytorch
 import ffmpeg #ffmpeg for video processing
 import av #PyAV ffmpeg wrapper
 import json #json for saving and loading analysis results
@@ -60,28 +59,26 @@ class Analysis:
         return self.analysis_data #return the analysis data for use in the GUI
     
     ## ANALYSE FOOTAGE FUNCTION ##
-    def analyze_footage(self, reference_frame_num):
+    def analyze_footage(self):
         Y_median_array = cp.zeros((self.frame_count, 2)) #create an array to store the Y median values for each frame
         RGB_median_array = cp.zeros((self.frame_count, 4)) #create an array to store the RGB median values for each frame
-        ref_frame_flag = cp.zeros((self.frame_count, 2)) #create an array to store the reference frame flag for each frame
 
 
         for frame, i in zip(self.container.decode(self.stream), range(self.frame_count)):
             frame_array = cp.frombuffer(frame.to_ndarray(format='rgb24'), cp.uint8).reshape([self.height, self.width, 3]) # convert the frame to a CuPy array in RGB format
 
-            Y_plane = 0.299 * frame_array[:, :, 0] + 0.587 * frame_array[:, :, 1] + 0.114 * frame_array[:, :, 2] # calculate the Y (luminance) plane from the RGB values using the standard formula for converting RGB to grayscale
+            RGB_histogram = cp.histogramdd(frame_array.reshape(-1, 3), bins=256, range=((0, 255), (0, 255), (0, 255))) # calculate the histogram of the RGB values for the current frame
 
-            if i == reference_frame_num: #if the current frame is the reference frame, perform the analysis and return the results
-                ref_frame_flag[i, 0] = i #set a flag to indicate that this is the reference frame
-                ref_frame_flag[i, 1] = 1 #set a flag to indicate that this frame is the reference frame
-            
+
+            Y_plane = 0.299 * frame_array[:, :, 0] + 0.587 * frame_array[:, :, 1] + 0.114 * frame_array[:, :, 2] # calculate the Y (luminance) plane from the RGB values using the standard formula for converting RGB to grayscale
+            Y_histogram, _ = cp.histogram(Y_plane, bins=256, range=(0, 255)) # calculate the histogram of the Y plane for the current frame
+
+
             Y_median_array[i, 0] = i #store the frame number in the Y median array
             Y_median_array[i, 1] = cp.median(Y_plane) #luminance median of the current frame
 
             RGB_median_array[i, 0] = i #store the frame number in the RGB median array
-            RGB_median_array[i, 1:] = cp.median(frame_array, axis=(0, 1)) #RGB median of the current frame
-
-            
+            RGB_median_array[i, 1:] = cp.median(frame_array, axis=(0, 1)) #RGB median of the current frame           
 
 
 
@@ -89,11 +86,25 @@ class Analysis:
             'frame_num': int(i),
             'Y_median': Y_median_array.get(), # convert CuPy scalar to Python float
             'RGB_median': RGB_median_array.get(), # convert each channel from CuPy scalar to Python float
-            'reference_frame_flag': ref_frame_flag.get() # convert CuPy scalar to Python int
         }
 
         
         return analyzed_data #return the analyzed data for use in the GUI
+
+    ## CHANGE DETECTION FUNCTION ##
+    def detect_changes(self, analyzed_data, threshold):
+        change = [] #list to store the detected changes
+        for i in range(1, len(analyzed_data['frame_num'])): #loop through the analyzed data starting from the second frame
+            Y_median_diff = abs(analyzed_data['Y_median'][i] - analyzed_data['Y_median'][i-1]) #calculate the absolute difference in Y median values between the current frame and the previous frame
+            RGB_median_diff = cp.linalg.norm(analyzed_data['RGB_median'][i][1:] - analyzed_data['RGB_median'][i-1][1:]) #calculate the Euclidean distance between the RGB median values of the current frame and the previous frame
+
+
+            if Y_median_diff > threshold or RGB_median_diff > threshold: #if either the Y median difference or the RGB median difference exceeds the specified threshold, consider it a change
+                change.append(i) #add the frame number to the list of detected changes
+
+        return change #return the list of detected changes for use in the GUI 
+
+
 
 
 
