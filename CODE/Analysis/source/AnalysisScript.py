@@ -51,12 +51,16 @@ class Analysis:
         self.stream.thread_type = "AUTO" # set the thread type to auto for optimal performance
         self.stream.thread_count = 0  # 0 = auto (use all cores)
 
-    
-    def opendata(self, analysis_path):
-        self.analysis_path = analysis_path #path to the selected analysis results file
-        with open(self.analysis_path, 'r') as f: #open the selected analysis results file
-            self.analysis_data = json.load(f) #load the analysis data from the file and store it in a variable for use in the GUI
-        return self.analysis_data #return the analysis data for use in the GUI
+    ## LOAD ANALYSIS FUNCTION TO LOAD ANALYSIS RESULTS FROM A JSON FILE ##
+    def load_analysis_json(self):
+        json_file_path = filedialog.askopenfilename(title="Load Analysis Results", filetypes=[("JSON files", "*.json")]) # open file dialog to select the analysis results file to load
+        with open(json_file_path, 'r') as f:
+            json_data = json.load(f) # load the analysis data from the selected JSON file and return it for use in the GUI
+            analysis_data = {} # initialize a dictionary to store the loaded analysis data
+            for item in json_data:
+                for key, value in item.items():
+                    analysis_data[key] = cp.array(value).get() # convert any lists in the loaded analysis data back to CuPy arrays for use in the GUI, while keeping other data types unchanged
+        return analysis_data
     
     ## ANALYSE FOOTAGE FUNCTION ##
     def analyze_footage(self):
@@ -67,11 +71,11 @@ class Analysis:
         for frame, i in zip(self.container.decode(self.stream), range(self.frame_count)):
             frame_array = cp.frombuffer(frame.to_ndarray(format='rgb24'), cp.uint8).reshape([self.height, self.width, 3]) # convert the frame to a CuPy array in RGB format
 
-            RGB_histogram = cp.histogramdd(frame_array.reshape(-1, 3), bins=256, range=((0, 255), (0, 255), (0, 255))) # calculate the histogram of the RGB values for the current frame
+            #RGB_histogram = cp.histogramdd(frame_array.reshape(-1, 3), bins=256, range=((0, 255), (0, 255), (0, 255))) # calculate the histogram of the RGB values for the current frame
 
 
             Y_plane = 0.299 * frame_array[:, :, 0] + 0.587 * frame_array[:, :, 1] + 0.114 * frame_array[:, :, 2] # calculate the Y (luminance) plane from the RGB values using the standard formula for converting RGB to grayscale
-            Y_histogram, _ = cp.histogram(Y_plane, bins=256, range=(0, 255)) # calculate the histogram of the Y plane for the current frame
+            #Y_histogram, _ = cp.histogram(Y_plane, bins=256, range=(0, 255)) # calculate the histogram of the Y plane for the current frame
 
 
             Y_median_array[i, 0] = i #store the frame number in the Y median array
@@ -94,15 +98,9 @@ class Analysis:
     ## CHANGE DETECTION FUNCTION ##
     def detect_changes(self, analyzed_data, threshold):
         change = [] #list to store the detected changes
-        for i in range(1, len(analyzed_data['frame_num'])): #loop through the analyzed data starting from the second frame
-            Y_median_diff = abs(analyzed_data['Y_median'][i] - analyzed_data['Y_median'][i-1]) #calculate the absolute difference in Y median values between the current frame and the previous frame
-            RGB_median_diff = cp.linalg.norm(analyzed_data['RGB_median'][i][1:] - analyzed_data['RGB_median'][i-1][1:]) #calculate the Euclidean distance between the RGB median values of the current frame and the previous frame
+       
 
-
-            if Y_median_diff > threshold or RGB_median_diff > threshold: #if either the Y median difference or the RGB median difference exceeds the specified threshold, consider it a change
-                change.append(i) #add the frame number to the list of detected changes
-
-        return change #return the list of detected changes for use in the GUI 
+        return analyzed_data #return the list of detected changes for use in the GUI 
 
 
 
