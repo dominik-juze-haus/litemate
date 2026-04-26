@@ -9,6 +9,7 @@ import os #os
 #import torch #pytorch
 import ffmpeg #ffmpeg for video processing
 import av #PyAV ffmpeg wrapper
+import math
 import json #json for saving and loading analysis results
 
 from tkinter import filedialog
@@ -48,24 +49,45 @@ def detect_changes(analyzed_data, threshold, lookahead_frames, release_frames):
     derived_data = derivative(Y_feed[:,1], analyzed_data['frame_num']) # calculate the derivative of the Y median data for use in change detection
     direction = 0 # initialize a variable to track the direction of the change, 0 = no change, 1 = positive change, -1 = negative change
     i = 0
+
+    
+    # --- flooring of noise data
+    '''
+    for i in range(analyzed_data['frame_num'] -1):
+        if abs(derived_data[i]) < 0.12:
+            derived_data[i] = 0
+    '''
+    
+    zerotolerance = 0.012
+
+
     while i < analyzed_data['frame_num'] - 1: # loop through the smoothed Y median data starting from the second frame
         #segment_diff = Y_median_smooth[i + 1] - Y_median_smooth[i] # calculate the absolute difference between the current frame and the next frame
-        if not change_ongoing_flag and abs(derived_data[i]) > threshold:
-            change_ongoing_flag = True
-            direction = 1 if derived_data[i] > 0 else -1 # determine the direction of the change based on the sign of the derivative
-            changes[0].append(i)
+        if not change_ongoing_flag and abs(derived_data[i]) > zerotolerance: # if there is no ongoing change and threshold was exceeded
+            
+            for j in range(lookahead_frames):
+                if i + j >= analyzed_data['frame_num'] - 1: # if we have reached the end of the data during lookahead, break out of the loop
+                        break
+                if abs(derived_data[i+j]) < zerotolerance: # if the change stabilizes in the lookahead, ignore the change
+                     change_ongoing_flag = False
+                     break
+                if abs(derived_data[i]) > threshold:
+                     change_ongoing_flag = True
+            if change_ongoing_flag: #if the change occurs in the entire lookahead
+                direction = 1 if derived_data[i] > 0 else -1 # determine the direction of the change based on the sign of the derivative
+                changes[0].append(i) #mark the change start
             
         elif change_ongoing_flag: # if the change is currently ongoing
-            if abs(derived_data[i]) <= 0.015: # if the change seems to have stopped
+            if abs(derived_data[i]) <= zerotolerance: # if the change seems to have stopped
                 stabilization_flag = True # initialize a flag to track whether the change has stabilized
                 for j in range(release_frames): # look ahead for the specified number of frames to see if the change stopped 
                     if i + j >= analyzed_data['frame_num'] - 1: # if we have reached the end of the data during lookahead, break out of the loop
                         break
                     if abs(derived_data[i + j]) > threshold: # if the change continues within the lookahead period, consider it to be ongoing
-                        stabilization_flag = False # if the change continues within the lookahead period, consider it to be ongoing and reset the stabilization flag
+                        stabilization_flag = False # reset the stabilization flag
                         break
-                if stabilization_flag: # if the change has stabilized, consider it to have ended and add the current frame to the list of detected changes
-                    changes[1].append(i) # if the change has stabilized, consider it to have ended and add the current frame to the list of detected changes
+                if stabilization_flag: # if the value has stabilized
+                    changes[1].append(i) # mark the change end
                     change_ongoing_flag = False # reset the change ongoing flag
                     direction = 0 # reset the change direction variable 
 
@@ -84,12 +106,22 @@ for key in analyzed_data:
 
 derived_data = derivative(analyzed_data['Y_median_smooth'], analyzed_data['frame_num']) # calculate the derivative of the smoothed Y median data for use in change detection
 
-
-#change_ongoing = False #boolean to track whether a change is currently ongoing
-
-threshold = 0.5 #set a threshold for change detection, can be adjusted in the GUI later
-lookahead_frames = 5 #set the number of frames to look ahead for detecting ongoing changes, can be adjusted in the GUI later
-release_frames = 20 #set the number of frames to look ahead for releasing ongoing changes, can be adjusted in the GUI later
+#powerful filter method, implement!
+'''
+for i in range(analyzed_data['frame_num'] -1): 
+    if abs(derived_data[i]) < 0.012: # if the derived data is in the noise threshold
+        derived_data[i] = 0 #floor the data
+    elif abs(derived_data[i]) > 0.15: # if the derived data exceedes threshold
+        if derived_data[i] < 0:
+            derived_data[i] = -1 #highlight decreasing change, if negative
+        else:
+            derived_data[i] = 1 #highlight increasing change, if positive
+'''
+        
+                  
+threshold = 0.3 #set a threshold for change detection, can be adjusted in the GUI later
+lookahead_frames = 7 #set the number of frames to look ahead for detecting ongoing changes, can be adjusted in the GUI later
+release_frames = 5 #set the number of frames to look ahead for releasing ongoing changes, can be adjusted in the GUI later
 
 
 changes = detect_changes(analyzed_data, threshold, lookahead_frames, release_frames) # perform change detection on the analyzed data with the specified threshold
