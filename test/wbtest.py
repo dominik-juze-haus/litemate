@@ -1,5 +1,5 @@
 import sys
-import cv2 as cv #OpenCV CPU only, for preview (only)
+#import cv2 as cv #OpenCV CPU only, for preview (only)
 import numpy as np #nom nom pie
 import scipy as sp #scipy
 import cupy as cp #CuPy for GPU acceleration
@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt #plotting
 import os #os
 import torch #pytorch
 import json #json
-from CTkListbox import * #listbox for custom tkinter
+#from CTkListbox import * #listbox for custom tkinter
 
 
 CCT_to_RGB_table = json.load(open("kelvin_table.json")) #CCT to RGB values

@@ -1,5 +1,5 @@
 import sys
-import cv2 as cv #OpenCV CPU only, for preview (only)
+#import cv2 as cv #OpenCV CPU only, for preview (only)
 import numpy as np #nom nom pie
 import cupy as cp #CuPy for GPU acceleration
 import ffmpeg #ffmpeg
@@ -10,7 +10,6 @@ import keyboard #keyboard input
 import matplotlib.pyplot as plt #plotting
 import os #os
 import torch #pytorch
-from CTkListbox import * #listbox for custom tkinter
 
 
 container = av.open(r'I:\CODING\LiteMate\Footage\pyxis_exposure_change.mov')
