@@ -1,7 +1,8 @@
 # litemate
 Exposure and white balance change point detection plugin script for DaVinci Resolve editing software
 
-__About__
+__About__ 
+
 Litemate is an assistive tool for video correction post production for detection and correction of color changes in long static shots
 best suitable for:
 - talking heads
