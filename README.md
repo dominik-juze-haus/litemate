@@ -17,8 +17,11 @@ You must use Python 3.12 or greater
 2. Install ffmpeg v7.1 or greater (hardware acceleration enabled builds are recommended)
 	- copy the build files to selected directory
 	- add the bin folder to PATH
+3. install cuda 13 SDK
 
-### 
+
+### Using the script
+ 
 
 The repository is in development
 
