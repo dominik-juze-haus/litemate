@@ -8,9 +8,16 @@ best suitable for:
 - podcasts
 - recordings of theatre
 
-__How to use__
+## How to use
+You must use Python 3.12 or greater
 
- 
+### Installation
+1. Install the dependencies from the requirements.txt `pip install -r requirements.txt`
+2. Install ffmpeg v7.1 or greater (hardware acceleration enabled builds are recommended)
+	- copy the build files to selected directory
+	- add the bin folder to PATH
+
+### 
 
 The repository is in development
 
