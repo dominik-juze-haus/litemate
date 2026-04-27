@@ -38,7 +38,7 @@ def derivative(data, frame_num):
     return derivative # return the calculated derivative values for use in change detection
 
 
-# ---- change detection function, which takes the analyzed data and the threshold as input and returns a list of detected changes
+# ---- change detection function
 def detect_changes(analyzed_data, threshold, lookahead_frames, release_frames):
     #Y_median_smooth = analyzed_data['Y_median_smooth'] # get the smoothed Y median data from the analyzed data
     #print(Y_median_smooth) # print the smoothed Y median data for debugging purposes
