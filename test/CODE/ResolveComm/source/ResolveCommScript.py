@@ -10,9 +10,26 @@ fusion = resolve.Fusion()
 ##footage_path = "I:/CODING/LiteMate/Footage/pyxis_exposure_change.mov"
 
 
-class GetAnalysisSettings:
+class GetFootageInfo:
     def __init__(self):
        ### Obtain the analysis setting from an open Davinci timeline
+        self.projectManager = resolve.GetProjectManager()  # Get the project manager
+        self.project = self.projectManager.GetCurrentProject() # Get the current project
+        self.timeline = self.project.GetCurrentTimeline() # Get the current timeline
+        
+        self.timeline_video = self.timeline.GetItemListInTrack("video", 1) # Get the file path of the footage in the video track of the timeline
+        self.video_mediapool = self.timeline_video[0].GetMediaPoolItem() # Get the media pool item for the footage in the video track of the timeline
+        
+        self.footage_path = self.video_mediapool.GetClipProperty('File Path') # Get the file path of the footage from the media pool item
+        
+        self.reference_marker_id = next(iter(self.timeline.GetMarkers())) # Get the first marker from the timeline
+
+        print(self.reference_marker_id)
+
+        print(self.timeline_video[0].GetName()) # Print the file path of the footage for debugging purposes
+        #print(self.timeline_video[0].GetProperty()) # Print the name of the timeline for debugging purposes
+        print(self.footage_path)
+        #print(self.footage_path) # Print the footage path for debugging purposes
 
 class SendToDaVinci:
     def __init__(self, footage_path, frameID):
@@ -51,3 +68,6 @@ class SendToDaVinci:
 
 # Call the class - send data to DaVinci Resolve
 ##SendToDaVinci(footage_path, [25, 100, 150])
+
+GetFootageInfo()
+
