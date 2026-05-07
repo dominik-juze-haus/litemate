@@ -31,7 +31,7 @@ version = "0.1.0"
 
 ### ________________G U I   T O P L E V E L   C L A S S________________ ###
 
-class guiBuild(ctk.CTk):
+class GuiBuild(ctk.CTk):
 # ---- Initialization and project setup page setup
     def __init__(self):
         super().__init__() #initialize the parent class (CTk)
@@ -250,6 +250,13 @@ class guiBuild(ctk.CTk):
                                                         font=ctk.CTkFont(size=16)) #label to display the reference frame number for the analysis
         self.reference_frame_num_label.pack(side="top", padx=20, pady=10) #pack the reference frame number label to the top of the project setup page frame with padding
 
+        # Reload reference frame number button ---
+        self.reload_reference_frame_button = ctk.CTkButton(master = curr_page_frame, 
+                                                        text="Reload Reference Frame", 
+                                                        font=ctk.CTkFont(size=16), 
+                                                        fg_color=default_widget_color,
+                                                        command=self.reload_reference_frame) #button to reload the reference frame number from the timeline marker
+        self.reload_reference_frame_button.pack(side="top", padx=20, pady=10) #pack the reload reference frame button to the top of the project setup page frame with padding
         # Threshold entry ---
         
         self.threshold_textbox = ctk.CTkEntry(master = curr_page_frame,
@@ -292,6 +299,12 @@ class guiBuild(ctk.CTk):
     def external_error_message(self, message):
         tk.messagebox.showerror("Error", message) #function to show an error message in a message box
 
+# ------ Function to reload the reference frame number from the timeline marker -----
+    def reload_reference_frame(self):
+        reference_frame_num = DaVinci().get_reference_marker() #call the get_reference_marker function from the DaVinci class to get the reference marker ID from the timeline
+        if reference_frame_num is not None: #if a reference marker ID is returned, update the reference frame number variable and label with the new reference frame number
+            self.reference_frame_num = reference_frame_num
+            self.reference_frame_num_label.configure(text='Reference Frame: ' + str(self.reference_frame_num)) #update the reference frame number label with the new reference frame number
 
 
 
@@ -433,8 +446,7 @@ class DaVinci:
         timeline_video = self.timeline.GetItemListInTrack("video", 1) # Get the file path of the footage in the video track of the timeline
         video_mediapool = timeline_video[0].GetMediaPoolItem() # Get the media pool item for the footage in the video track of the timeline
         footage_path = os.path.normpath(video_mediapool.GetClipProperty('File Path')) # Get the file path of the footage from the media pool item
-        reference_marker_id = next(iter(self.timeline.GetMarkers())) # Get the markers from the timeline
-
+        reference_marker_id = self.get_reference_marker() # Get the reference marker ID from the timeline for use in the analysis
         print(timeline_video[0].GetName()) # Print the file path of the footage for debugging purposes
         print(footage_path) # Print the file path of the footage for debugging purposes
         print(reference_marker_id) # Print the markers from the timeline for debugging purposes
@@ -447,7 +459,16 @@ class DaVinci:
             print(frame_id)
             self.timeline.AddMarker(frame_id[0], 'Red', 'Marker Name', 'Notes', frame_id[1]-frame_id[0], 'Secret_Word') # Add markers to the timeline at the specified frame IDs
 
-
+    def get_reference_marker(self):
+        markers = self.timeline.GetMarkers() # Get the markers from the timeline
+        if not markers: # If no markers are found, show an error message and return None
+            GuiBuild.external_error_message(self, "No markers found in the timeline. Please add a marker to the timeline to indicate the reference frame for the analysis.")
+            return None
+        elif len(markers) > 1: # If multiple markers are found, show an error message and return None
+            GuiBuild.external_error_message(self, "Multiple markers found in the timeline. Please ensure there is only one marker in the timeline to indicate the reference frame for the analysis.")
+            return None
+        reference_marker_id = next(iter(markers)) # Get the first marker ID from the markers dictionary
+        return reference_marker_id # Return the reference marker ID for use in the analysis
 '''
 analysis = Analysis(footage_path) # create an instance of the Analysis class with the selected footage
 analyzed_data = analysis.analyze_footage(reference_frame_num) # perform the analysis on the footage with the specified reference frame number
@@ -458,4 +479,4 @@ print(analyzed_data) # print the analyzed data to the console for testing purpos
 
 # Analysis(footage_path)
 DaVinci()
-guiBuild().mainloop() #start the GUI main loop
+GuiBuild().mainloop() #start the GUI main loop
