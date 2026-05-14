@@ -219,3 +219,26 @@ else:
 
 #Displaying the plots
 plt.show()
+
+
+## DUMPING ALGS FROM THE MAIN CODE
+
+"""
+def RGB_analyze(self):
+        RGB_avg_values = cp.zeros((self.frame_count, 3)) #create an array to store the RGB average values for each frame
+
+
+        for frame, i in zip(self.container.decode(self.stream), range(self.frame_count)):
+            frame_array = cp.frombuffer(frame.to_ndarray(format='rgb24'), cp.uint8).reshape([self.height, self.width, 3]) # convert the frame to a CuPy array in RGB format
+
+            #RGB_histogram = cp.histogramdd(frame_array.reshape(-1, 3), bins=256, range=((0, 255), (0, 255), (0, 255))) # calculate the histogram of the RGB values for the current frame
+
+
+            #Y_histogram, _ = cp.histogram(Y_plane, bins=256, range=(0, 255)) # calculate the histogram of the Y plane for the current frame
+
+
+            RGB_avg_values[i, 0:] = cp.median(frame_array, axis=(0, 1)) #RGB median of the current frame           
+
+        
+        return RGB_avg_values # return the analyzed data for use in the GUI
+"""

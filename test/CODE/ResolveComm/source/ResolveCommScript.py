@@ -24,12 +24,24 @@ class GetFootageInfo:
         
         self.reference_marker_id = next(iter(self.timeline.GetMarkers())) # Get the first marker from the timeline
 
+        self.current_timecode = self.timeline.GetCurrentTimecode() # Get the current timecode from the timeline
+        self.fps = self.timeline.GetSetting("timelineFrameRate") # Get the frame rate of the timeline
+        
+        self.current_playhead_frame = self.current_timecode_to_frames(self.current_timecode, self.fps) # Convert the current timecode to a frame number for use in the analysis
+
+        print(self.current_playhead_frame)
+        
         print(self.reference_marker_id)
 
         print(self.timeline_video[0].GetName()) # Print the file path of the footage for debugging purposes
         #print(self.timeline_video[0].GetProperty()) # Print the name of the timeline for debugging purposes
         print(self.footage_path)
         #print(self.footage_path) # Print the footage path for debugging purposes
+
+    def current_timecode_to_frames(self, timecode, fps):
+        hours, minutes, seconds, frames = map(int, timecode.split(':')) # Split the timecode into its components and convert them to integers
+        total_frames = int((hours * 3600 + minutes * 60 + seconds) * fps + frames) # Calculate the total number of frames based on the timecode and frame rate
+        return total_frames # Return the total number of frames for use in the analysis
 
 class SendToDaVinci:
     def __init__(self, footage_path, frameID):

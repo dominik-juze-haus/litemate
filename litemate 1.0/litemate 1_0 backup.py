@@ -384,7 +384,7 @@ class Analysis:
 
 
         self.Y_avg_values = None # initialize a variable to store the Y average values for use in change detection
-        self.WB_avg_values = None # initialize a variable to store the RGB average values for use in change detection
+        self.HSL_avg_values = None # initialize a variable to store the RGB average values for use in change detection
     ## LOAD ANALYSIS FUNCTION TO LOAD ANALYSIS RESULTS FROM A JSON FILE ##
     def load_analysis_json(self):
         json_file_path = filedialog.askopenfilename(title="Load Analysis Results", filetypes=[("JSON files", "*.json")]) # open file dialog to select the analysis results file to load
@@ -423,35 +423,33 @@ class Analysis:
             if match:
                 Y_avg_values.append(float(match.group(1))) # extract the Y average value from the matched line, convert it to a float, and append it to the list of Y average values for each frame
 
-        print(Y_avg_values)
         if len(Y_avg_values) == self.frame_count: # if the number of Y average values matches the total frame count of the video, return the Y average values for use in the GUI, otherwise show an error message   
             return Y_avg_values
         else:
             GuiBuild.external_error_message(self, "Backend Error: Inconsistent frame count in Y analysis results.") # show an error message if the number of Y average values does not match the total frame count of the video
             return None
         
-    ## WB ANALYZE FOOTAGE FUNCTION ##
+    ## RGB ANALYZE FOOTAGE FUNCTION ##
     def WB_analyze(self):
         
-        valtypes = ['YAVG', 'SATAVG', 'HUEAVG'] #set of value types
-        HSL_avg_values = [[],[],[]]
+        valtypes = ['YAVG', 'HUEAVG', 'SATAVG'] #set of value types
+        HSL_avg_values = []
 
-        for line in self.out.stderr: 
-            line = line.decode("utf-8") # decode the line from bytes to string format for processing
+        for valtype, i in zip(valtypes, range(len(valtypes))): # loop through the HSL value types and their indices
+            pattern = rf'{valtype}=([\d\.]+)' # regular expression pattern to search for the HSL values
+            HSL_avg_values.append([]) # initialize a list to store the average values for each frame for the current value type
+
+            for line in self.out.stderr: 
+                line = line.decode("utf-8") # decode the line from bytes to string format for processing
                 #print(line)
-
-            for valtype, i in zip(valtypes, range(0, len(valtypes))): # loop through the HSL value types and their indices
-                
-                pattern = rf'{valtype}=([\d\.]+)' # regular expression pattern to search for the HSL values
-
                 match = re.search(pattern, line) # search for the RGB average value in the line using the defined regular expression pattern, which looks for "VALTYPE=" followed by a number (which can include a decimal point) and captures the number as a group for extraction
 
                 if match:
                     HSL_avg_values[i].append(float(match.group(1))) # extract the HSL average value from the matched line, convert it to a float, and append it to the list of HSL average values for each frame
         
-        #print(HSL_avg_values)
-        
+
         if len(HSL_avg_values[0]) == self.frame_count: # if the number of HSL average values matches the total frame count of the video, return the HSL average values for use in the GUI, otherwise show an error message   
+            print(HSL_avg_values)
             return HSL_avg_values
         else:
             GuiBuild.external_error_message(self, "Backend Error: Inconsistent frame count in HSL analysis results.") # show an error message if the number of HSL average values does not match the total frame count of the video
@@ -465,14 +463,13 @@ class Analysis:
             .input(self.shot_path)
             .filter('scale', 320, -1)
             .filter('signalstats')
-            .filter("metadata", "print")
             .output("null", f="null")
             .run_async(pipe_stderr=True)
         )
 
-        """ for line in out.stderr: 
+        for line in out.stderr: 
             line = line.decode("utf-8") # decode the line from bytes to string format for processing
-            print(line) """
+            print(line)
 
         return out # return the ffmpeg process output for processing the signalstats data in the GUI
 
@@ -554,30 +551,20 @@ class Analysis:
                 i += 1 # if there is no change, move to the next frame
         
         if analysis_type[0]: # if white balance analysis is selected, use the RGB median data for change detection, will be replaced with the actual function to perform change detection on the RGB median data
-            if self.WB_avg_values is None: # if the HSL average values are not available, show an error message and return empty change lists
-                self.perform_analysis(analysis_type) # call the HSL_analyze function to get the HSL average values for each frame and store it in a variable for use in change detection
-            
-
-            HUE_norm = self.WB_avg_values[2]/360 # extract the HUE values from the HSL average values
-            SAT_norm = self.WB_avg_values[1]/181.02 # extract the SAT values from the HSL average values
-            Y_norm = self.WB_avg_values[0]/255 # extract the Y values from the HSL average values
-
-            red, green, blue = colorsys.hls_to_rgb(HUE_norm, Y_norm, SAT_norm)
-            
-            
+            if self.HSL_avg_values is None: # if the RGB average values are not available, show an error message and return empty change lists
+                self.HSL_avg_values = self.perform_analysis(analysis_type) # call the RGB_analyze function to get the RGB average values for each frame and store it in a variable for use in change detection
 
 
+            RGB_changes = [[], []] #list to store the detected changes for the RGB analysis, will be replaced with the actual function to perform change detection on the RGB median data
 
-            WB_changes = [[], []] #list to store the detected changes for the HSL analysis, will be replaced with the actual function to perform change detection on the HSL median data
 
-
-        if not analysis_type[0]: # if white balance analysis is not selected, set the HSL changes list to empty lists
-            WB_changes = [[], []]
+        if not analysis_type[0]: # if white balance analysis is not selected, set the RGB changes list to empty lists
+            RGB_changes = [[], []]
 
         if not analysis_type[1]: # if exposure analysis is not selected, set the Y changes list to empty lists
             Y_changes = [[], []]
 
-        return Y_changes, WB_changes, self.Y_avg_values, self.WB_avg_values # return the list of detected changes for use in the GUI, will be replaced with the actual function to return the detected changes based on the selected analysis type
+        return Y_changes, RGB_changes, self.Y_avg_values, self.RGB_avg_values # return the list of detected changes for use in the GUI, will be replaced with the actual function to return the detected changes based on the selected analysis type
 
 
 
