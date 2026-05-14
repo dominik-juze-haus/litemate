@@ -622,3 +622,22 @@ print(analyzed_data) # print the analyzed data to the console for testing purpos
 # Analysis(footage_path)
 DaVinci()
 GuiBuild().mainloop() #start the GUI main loop
+
+
+""" #HSL avg values (probably wont work well)
+print(self.WB_avg_values) # print the HSL average values for debugging purposes
+
+HUE_norm = [((x-166)%360)/360 for x in self.WB_avg_values[2]] # extract the HUE values from the HSL average values
+SAT_norm = [x/525 for x in self.WB_avg_values[1]] # extract the SAT values from the HSL average values
+Y_norm = [x/1023 for x in self.WB_avg_values[0]] # extract the Y values from the HSL average values
+
+rgb_values = [colorsys.hls_to_rgb(h, y, s) for h, y, s in zip(HUE_norm, Y_norm, SAT_norm)]
+
+#print(rgb_values)
+
+red = [x * 255 for x, _, _ in rgb_values]
+green = [y * 255 for _, y, _ in rgb_values]
+blue = [z * 255 for _, _, z in rgb_values]
+
+#print(red, green, blue) """
+

@@ -103,29 +103,31 @@ class GuiBuild(ctk.CTk):
 
 
 # ----- SHOW ANALYSIS DATA PAGE -----
-    def show_analysis_data_page(self, Y_changes, RGB_changes, Y_avg_values, RGB_avg_values):
-        
-        
+    def show_analysis_data_page(self, Y_changes, WB_changes, Y_avg_values, WB_avg_values):
         selected_analyses = [var.get() for var in self.analysis_selection_tkvar] #get the values of the analysis selection checkboxes
-        
-        print(Y_avg_values)
 
-
-        # CLEAR THE HOME FRAME
+         # CLEAR THE HOME FRAME
         self.clear_home_frame() #call the function to clear the home frame before displaying the analysis results, will be replaced with a function to clear the home frame when navigating between pages in the GUI
+        self.geometry('1280x1000') #resize the window to better fit the analysis results page layout
+        self.show_analysis_data_page_frame = ctk.CTkFrame(master = self.home) #frame for the show analysis data page, master is the home frame
+        self.show_analysis_data_page_frame.configure(bg_color=default_bg_color, fg_color=default_fg_color) #configure the background color of the show analysis data page frame
+        self.show_analysis_data_page_frame.pack(side="top", fill="both", expand=True, anchor="center") #pack the show analysis data page frame to fill the entire home frame and allow it to expand
         
+           
         # PREPARE SUBPLOT
         results_plot_fig, graph = plt.subplots() #create a figure for the analysis results plot
 
         # PREPARE THE GRAPH CANVAS
-        self.graph_canvas = FigureCanvasTkAgg(results_plot_fig, master=self.home) #create a canvas to display the analysis results plot in the GUI
+        self.graph_canvas = FigureCanvasTkAgg(results_plot_fig, master=self.show_analysis_data_page_frame) #create a canvas to display the analysis results plot in the GUI
         self.graph_canvas.get_tk_widget().pack(side="top", fill="both", expand=True) #pack the canvas to fill the entire home frame and allow it to expand
         
        
         if selected_analyses[0]: #if white balance analysis is selected, plot the white balance analysis results
-            graph.plot(range(len(RGB_avg_values)), RGB_avg_values[:, 1], label='Red', color='red') #plot the red channel median values from the analysis data
-            graph.plot(range(len(RGB_avg_values)), RGB_avg_values[:, 2], label='Green', color='green') #plot the green channel median values from the analysis data
-            graph.plot(range(len(RGB_avg_values)), RGB_avg_values[:, 3], label='Blue', color='blue') #plot the blue channel median values from the analysis data
+            graph.plot(range(len(WB_avg_values[0])), WB_avg_values[0], label='Red', color='red') #plot the red channel median values from the analysis data
+            graph.plot(range(len(WB_avg_values[1])), WB_avg_values[1], label='Green', color='green') #plot the green channel median values from the analysis data
+            graph.plot(range(len(WB_avg_values[2])), WB_avg_values[2], label='Blue', color='blue') #plot the blue channel median values from the analysis data
+            for change in WB_changes[0]: #if there are detected changes in the white balance analysis, add vertical lines to the plot to indicate the start of the detected changes\
+                graph.axvline(x=change, color='m', linestyle='--') #add a vertical line to indicate the start of the detected change
 
         if selected_analyses[1]: #if exposure analysis is selected, plot the exposure analysis results
             graph.plot(range(len(Y_avg_values)), Y_avg_values, label='Y Median', color='orange') #plot the Y channel median values from the analysis data
@@ -136,8 +138,10 @@ class GuiBuild(ctk.CTk):
         graph.axvline(x=self.reference_frame_num, color='k', linestyle='--', label='Reference Frame') #plot a vertical line to indicate the reference frame based on the reference frame flag in the analysis data
 
 
-        
+        self.analysis_settings_widgets(self.show_analysis_data_page_frame) #call the function to create the analysis settings widgets in the show analysis data page frame for quick adjustments to the analysis parameters and re-running the analysis without having to navigate back to the project setup page
+
         self.graph_canvas.draw() #draw the analysis results plot on the canvas
+        
         
 
 
@@ -202,7 +206,7 @@ class GuiBuild(ctk.CTk):
 
 
         Y_changes, RGB_changes, Y_avg_values, RGB_avg_values = Analysis(self.shot_path).detect_changes(selected_analyses, self.change_threshold, self.lookahead_frames, self.release_frames) #call the detect_changes function from the Analysis class to perform change detection on the analyzed data with a specified threshold and store the results in a variable for use in the GUI
-        print("Analysis completed. Displaying results...") #placeholder for displaying the analysis results, will be replaced with the actual function to display the analysis results in the GUI
+        print("Analysis completed. Displaying results...") #placeholder for displaying the analysis results
         
         self.show_analysis_data_page(Y_changes, RGB_changes, Y_avg_values, RGB_avg_values) #call the show_analysis_data function to display the
 
@@ -221,15 +225,11 @@ class GuiBuild(ctk.CTk):
         elif selected_analyses[1]: #if only exposure analysis is selected, print a message (placeholder for starting the exposure analysis)
             print("Selected Exposure...") #placeholder for starting the exposure analysis
 
-        print("Importing analysis results...") #placeholder for importing analysis results, will be replaced with the actual function to import analysis results
+        print("Importing analysis results...") #placeholder for importing analysis results
         analysis_path = filedialog.askopenfilename() #open a file dialog to select the analysis results file
         analysis_path = os.path.normpath(analysis_path) #normalize the selected analysis results file path
-        print(f"Selected analysis results file: {analysis_path}") #print the selected analysis results file path, will be replaced with the actual function to import and process the analysis results
-        analysis_data = Analysis.load_analysis_json(self) #call the load_analysis_json function from the Analysis class to load the analysis data from the selected file and store it in a variable for use in the GUI
-
-        detection_data = Analysis.detect_changes(self, analysis_data, threshold=self.change_threshold) #call the detect_changes function from the Analysis class to perform change detection on the loaded analysis data with a specified threshold and store the results in a variable for use in the GUI
-
-        self.show_analysis_data_page(analysis_data, detection_data) #call the show_analysis_data function to display the analysis data in the GUI, will be replaced with the actual function to display the analysis data in the GUI
+        print(f"Selected analysis results file: {analysis_path}") #print the selected analysis results file path
+        #self.show_analysis_data_page(Y_changes, RGB_changes, Y_avg_values, RGB_avg_values) #call the show_analysis_data function to display the analysis data in the GUI
 
 
     #------ BUTTON COMMANDS ------
@@ -399,15 +399,26 @@ class Analysis:
     ## PERFORM SELECTED ANALYSIS FUNCTION
     def perform_analysis(self, analysis_type):
         self.out = self.decode_with_signalstats() # call the decode_with_signalstats function to start decoding the video with the signalstats filter and store the output for processing the analysis data in the GUI
+      
+        self.bit_depth = None
 
+        for line in self.out:
+
+            if self.bit_depth is None: # if the bit depth has not been determined yet, try to determine it from the line
+                bit_depth_match = re.search(r'YBITDEPTH=(\d+)', line) # search for the bit depth in the line using a regular expression pattern that looks for "bit_depth=" followed by a number and captures the number as a group for extraction
+                if bit_depth_match:
+                    self.bit_depth = int(bit_depth_match.group(1)) # extract the bit depth from the matched line and convert it to an integer for use in determining the expected range of the YUV values, which can vary based on the bit depth of the video (e.g., 0-255 for 8-bit, 0-1023 for 10-bit, etc.)
+                    break
+        
+        print(f"Determined bit depth: {self.bit_depth}") # print the determined bit depth for debugging purposes, will be removed in the final version of the GUI
+        
         if analysis_type[0]: # if white balance analysis is selected, call the RGB_analyze function to perform the white balance analysis and store the results in a variable for use in the GUI
             self.WB_avg_values = self.WB_analyze() # call the RGB_analyze function to perform the white balance analysis and store the results in a variable for use in the GUI
 
 
         if analysis_type[1]: # if exposure analysis is selected, call the Y_analyze function to perform the exposure analysis and store the results in a variable for use in the GUI
             self.Y_avg_values = self.Y_analyze() # call the Y_analyze function to perform the exposure analysis and store the results in a variable for use in the GUI
-
-
+        print(self.Y_avg_values)
 
     ## Y ANALYZE FOOTAGE FUNCTION ##
     def Y_analyze(self):
@@ -415,15 +426,13 @@ class Analysis:
         pattern = r'YAVG=([\d\.]+)' # regular expression pattern to search for the Y average value in the ffmpeg output, looks for "YAVG=" followed by a number (which can include a decimal point) and captures the number as a group for extraction   
         Y_avg_values = []
 
-        for line in self.out.stderr: 
-            line = line.decode("utf-8") # decode the line from bytes to string format for processing
-            #print(line)
+        for line in self.out: 
             match = re.search(pattern, line) # search for the Y average value in the line using the defined regular expression pattern, which looks for "YAVG=" followed by a number (which can include a decimal point) and captures the number as a group for extraction
 
             if match:
                 Y_avg_values.append(float(match.group(1))) # extract the Y average value from the matched line, convert it to a float, and append it to the list of Y average values for each frame
 
-        print(Y_avg_values)
+        #print(Y_avg_values)
         if len(Y_avg_values) == self.frame_count: # if the number of Y average values matches the total frame count of the video, return the Y average values for use in the GUI, otherwise show an error message   
             return Y_avg_values
         else:
@@ -433,28 +442,28 @@ class Analysis:
     ## WB ANALYZE FOOTAGE FUNCTION ##
     def WB_analyze(self):
         
-        valtypes = ['YAVG', 'SATAVG', 'HUEAVG'] #set of value types
-        HSL_avg_values = [[],[],[]]
+        valtypes = ['YAVG', 'UAVG', 'VAVG'] #set of value types
+        YUV_avg_values = [[],[],[]]
 
-        for line in self.out.stderr: 
-            line = line.decode("utf-8") # decode the line from bytes to string format for processing
-                #print(line)
+        
 
+        for line in self.out: 
             for valtype, i in zip(valtypes, range(0, len(valtypes))): # loop through the HSL value types and their indices
                 
-                pattern = rf'{valtype}=([\d\.]+)' # regular expression pattern to search for the HSL values
+                
+                pattern = rf'{valtype}=([\d\.]+)' # regular expression pattern to search for the YUV values
 
-                match = re.search(pattern, line) # search for the RGB average value in the line using the defined regular expression pattern, which looks for "VALTYPE=" followed by a number (which can include a decimal point) and captures the number as a group for extraction
+                match = re.search(pattern, line) # search for the YUV  average value in the line using the defined regular expression pattern, which looks for "VALTYPE=" followed by a number (which can include a decimal point) and captures the number as a group for extraction
 
                 if match:
-                    HSL_avg_values[i].append(float(match.group(1))) # extract the HSL average value from the matched line, convert it to a float, and append it to the list of HSL average values for each frame
+                    YUV_avg_values[i].append(float(match.group(1))) # extract the YUV average value from the matched line, convert it to a float, and append it to the list of YUV average values for each frame
+                #print(YUV_avg_values)
         
-        #print(HSL_avg_values)
-        
-        if len(HSL_avg_values[0]) == self.frame_count: # if the number of HSL average values matches the total frame count of the video, return the HSL average values for use in the GUI, otherwise show an error message   
-            return HSL_avg_values
+        if len(YUV_avg_values[0]) == self.frame_count: # if the number of YUV average values matches the total frame count of the video, return the YUV average values for use in the GUI, otherwise show an error message   
+            return YUV_avg_values
         else:
-            GuiBuild.external_error_message(self, "Backend Error: Inconsistent frame count in HSL analysis results.") # show an error message if the number of HSL average values does not match the total frame count of the video
+            string = "Backend Error: Inconsistent frame count in YUV analysis results.\n" + f"Expected: {self.frame_count}, Got: {len(YUV_avg_values[0])}" # initialize an error message string to show in the error message box
+            GuiBuild.external_error_message(self, string) # show an error message if the number of YUV average values does not match the total frame count of the video
             return None
         
 
@@ -473,8 +482,14 @@ class Analysis:
         """ for line in out.stderr: 
             line = line.decode("utf-8") # decode the line from bytes to string format for processing
             print(line) """
+        
+        output_lines = []
+        for line in out.stderr:
+            line = line.decode("utf-8") # decode the line from bytes to string format for processing
+            output_lines.append(line) # store the decoded lines in a list for processing the analysis data in the GUI, since the ffmpeg output is a generator that can only be iterated through once, we need to store the lines in a list to loop through them again for each analysis type if both analyses are selected
 
-        return out # return the ffmpeg process output for processing the signalstats data in the GUI
+
+        return output_lines # return the ffmpeg process output for processing the signalstats data in the GUI
 
 
     # ---- function to calculate the derivative of the analyzed data
@@ -486,23 +501,32 @@ class Analysis:
         return derivative # return the calculated derivative values for use in change detection
 
 
+    # ---- YUV to RGB conversion function for REC.709
+    def YUV_to_RGB_rec709(self, y, u, v): 
+        r = y + 1.5748 * (v - 512) # calculate the red channel value from the YUV values using the REC.709 color space conversion formula
+        g = y - 0.1873 * (u - 512) - 0.4681 * (v - 512) # calculate the green channel value from the YUV values using the REC.709 color space conversion formula
+        b = y + 1.8556 * (u - 512) # calculate the blue channel value from the YUV values using the REC.709 color space conversion formula
+
+        r = int(max(0, min(1023, r))) # clamp the red channel value to the range of 0-1023
+        g = int(max(0, min(1023, g))) # clamp the green channel value to the range of 0-1023
+        b = int(max(0, min(1023, b))) # clamp the blue channel value to the range of 0-1023
+
+        return r, g, b # return the calculated RGB values for use in change detection on the RGB data
+
     # ---- change detection function, which takes the analyzed data and the threshold as input and returns a list of detected changes
     def detect_changes(self, analysis_type, threshold, lookahead_frames, release_frames):
-        #Y_median_smooth = analyzed_data['Y_median_smooth'] # get the smoothed Y median data from the analyzed data
-        #print(Y_median_smooth) # print the smoothed Y median data for debugging purposes
-        #print(Y_feed) # print the Y median data for debugging purposes
-        
 
+        zerotolerance = 1
 
         if analysis_type[1]: # if exposure analysis is selected, use the Y median data for change detection
             if self.Y_avg_values is None: # if the Y average values are not available, show an error message and return empty change lists
-                self.Y_avg_values = self.perform_analysis(analysis_type) # perform analysis if no data is available
+                self.perform_analysis(analysis_type) # perform analysis if no data is available
 
             Y_changes = [[], []] #list to store the detected changes
             change_ongoing_flag = False # initialize a flag to track whether a change is currently ongoing
             derived_data = self.derivative(self.Y_avg_values, self.frame_count) # calculate the derivative of the Y average data for use in change detection
             direction = 0 # initialize a variable to track the direction of the change, 0 = no change, 1 = positive change, -1 = negative change
-            i = 0
+            
 
             
             # --- flooring of noise data
@@ -511,10 +535,7 @@ class Analysis:
                 if abs(derived_data[i]) < 0.12:
                     derived_data[i] = 0
             '''
-            
-            zerotolerance = 0.012
-
-
+            i = 0
             while i < self.frame_count - 1: # loop through the smoothed Y median data starting from the second frame
                 #segment_diff = Y_median_smooth[i + 1] - Y_median_smooth[i] # calculate the absolute difference between the current frame and the next frame
                 if not change_ongoing_flag and abs(derived_data[i]) > zerotolerance: # if there is no ongoing change and threshold was exceeded
@@ -553,31 +574,70 @@ class Analysis:
                 
                 i += 1 # if there is no change, move to the next frame
         
-        if analysis_type[0]: # if white balance analysis is selected, use the RGB median data for change detection, will be replaced with the actual function to perform change detection on the RGB median data
+        if analysis_type[0]: # if white balance analysis is selected, use the RGB median data for change detection
             if self.WB_avg_values is None: # if the HSL average values are not available, show an error message and return empty change lists
                 self.perform_analysis(analysis_type) # call the HSL_analyze function to get the HSL average values for each frame and store it in a variable for use in change detection
             
-
-            HUE_norm = self.WB_avg_values[2]/360 # extract the HUE values from the HSL average values
-            SAT_norm = self.WB_avg_values[1]/181.02 # extract the SAT values from the HSL average values
-            Y_norm = self.WB_avg_values[0]/255 # extract the Y values from the HSL average values
-
-            red, green, blue = colorsys.hls_to_rgb(HUE_norm, Y_norm, SAT_norm)
-            
-            
+            RGB_avg_values = [[], [], []] # initialize a variable to store the RGB average values for use in change detection
+            for y, u, v in zip(self.WB_avg_values[0], self.WB_avg_values[1], self.WB_avg_values[2]): # loop through the RGB average values for each frame and perform change detection
+                r, g, b = self.YUV_to_RGB_rec709(y, u, v) # convert the YUV average values to RGB values for use in change detection
+                RGB_avg_values[0].append(r) # append the converted red channel value to the list of RGB average values for change detection
+                RGB_avg_values[1].append(g) # append the converted green channel value to the list of RGB average values for change detection
+                RGB_avg_values[2].append(b) # append the converted blue channel value to the list of RGB average values for change detection
 
 
+            WB_changes = [[], []] #list to store the detected changes for the white balance analysis
+            change_ongoing_flag = False # initialize a flag to track whether a change is currently ongoing for the HSL analysis
+            derived_data = self.derivative(RGB_avg_values[1], self.frame_count) # calculate the derivative of the RGB average data for use in change detection
+            direction = 0 # initialize a variable to track the direction of the change for the HSL analysis, 0 = no change, 1 = positive change, -1 = negative change
 
-            WB_changes = [[], []] #list to store the detected changes for the HSL analysis, will be replaced with the actual function to perform change detection on the HSL median data
+            i = 0
+            while i < self.frame_count - 1: # loop through the RGB average data starting from the second frame for change detection
+                if not change_ongoing_flag and abs(derived_data[i]) > threshold: # if there is no ongoing change and threshold was exceeded
+                    for j in range(lookahead_frames): # look ahead for the specified number of frames to confirm the change
+                        if i + j >= self.frame_count - 1: # if we have reached the end of the data during lookahead, break out of the loop
+                            break
+                        if abs(derived_data[i+j]) < zerotolerance: # if the change stabilizes in the lookahead, ignore the change
+                            change_ongoing_flag = False # reset the change ongoing flag if the change stabilizes during lookahead
+                            break
+                        if abs(derived_data[i]) > threshold: # if the change continues in the lookahead, mark it as an ongoing change and record the direction
+                            change_ongoing_flag = True # set the change ongoing flag if the change continues during lookahead
+                    if change_ongoing_flag: # if the change occurs in the entire lookahead period, mark the change start and record the direction
+                        direction = 1 if derived_data[i] > 0 else -1 # determine the direction of the change based on the sign of the derivative
+                        WB_changes[0].append(i) # mark the change start in the list of detected changes for the HSL analysis
 
+                elif change_ongoing_flag: # if the change is currently ongoing
+                    if abs(derived_data[i]) <= zerotolerance: # if the change seems to have stopped, look ahead to confirm stabilization
+                        stabilization_flag = True # initialize a flag to track whether the change has stabilized
+                        for j in range(release_frames): # look ahead for the specified number of frames to see if the change stopped
+                            if i + j >= self.frame_count - 1: # if we have reached the end of the data during lookahead, break out of the loop
+                                break
+                            if abs(derived_data[i + j]) > threshold: # if the change continues within the lookahead period, consider it to be ongoing
+                                stabilization_flag = False # reset the stabilization flag if continued change is detected during lookahead
+                                break
+                        if stabilization_flag: # if the value has stabilized, mark the change end and reset flags
+                            WB_changes[1].append(i) # mark the change end in the list of detected changes for the HSL analysis
+                            change_ongoing_flag = False # reset the change ongoing flag
+                            direction = 0 # reset the change direction variable
 
+                    elif (direction == 1 and derived_data[i] < 0) or (direction == -1 and derived_data[i] > 0): # if the change direction reversed, mark it as a new change and flip direction
+                        WB_changes[1].append(i) # if the change continues, consider it to have ended and add the current frame to the list of detected changes for the HSL analysis
+                        i += 1
+                        WB_changes[0].append(i) # if the change continues, consider it to have started again and add the current frame to the list of detected changes for the HSL analysis
+                        direction *= -1 # flip the change direction variable
+                        
+                i += 1 # if there is no change, move to the next frame
+
+               
         if not analysis_type[0]: # if white balance analysis is not selected, set the HSL changes list to empty lists
             WB_changes = [[], []]
+            RGB_avg_values = [[], [], []] # set the RGB average values to empty lists if white balance analysis is not selected for use in the GUI
 
         if not analysis_type[1]: # if exposure analysis is not selected, set the Y changes list to empty lists
             Y_changes = [[], []]
+            self.Y_avg_values = [[], [], []] # set the Y average values to empty lists if exposure analysis is not selected for use in the GUI
 
-        return Y_changes, WB_changes, self.Y_avg_values, self.WB_avg_values # return the list of detected changes for use in the GUI, will be replaced with the actual function to return the detected changes based on the selected analysis type
+        return Y_changes, WB_changes, self.Y_avg_values, RGB_avg_values # return the list of detected changes for use in the GUI
 
 
 
