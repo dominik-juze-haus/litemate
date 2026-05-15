@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 
 # PREPARE RESOLVE SCRIPT ENVIRONMENT
+
+
 import DaVinciResolveScript as dvr_script
 
 
@@ -22,6 +24,7 @@ import keyboard #keyboard is a library for detecting and simulating keyboard eve
 import json #json is a library for working with JSON data in Python, used for loading and saving analysis results in JSON format in the Analysis class
 import os #os is a library for interacting with the operating system in Python, used for file path manipulations and other OS-related functionality in the GUI and Analysis class
 import colorsys #colorsys is a library for converting between different color systems in Python, used for converting CCT values to RGB values in the Analysis class (not yet implemented)
+
 
 default_bg_color = "#001523"
 default_fg_color = "#001523"
@@ -103,12 +106,13 @@ class GuiBuild(ctk.CTk):
 
 
 # ----- SHOW ANALYSIS DATA PAGE -----
-    def show_analysis_data_page(self, Y_changes, WB_changes, Y_avg_values, WB_avg_values):
+    def show_analysis_data_page(self, changes, avg_values):
         selected_analyses = [var.get() for var in self.analysis_selection_tkvar] #get the values of the analysis selection checkboxes
 
          # CLEAR THE HOME FRAME
         self.clear_home_frame() #call the function to clear the home frame before displaying the analysis results, will be replaced with a function to clear the home frame when navigating between pages in the GUI
         self.geometry('1280x1000') #resize the window to better fit the analysis results page layout
+        
         self.show_analysis_data_page_frame = ctk.CTkFrame(master = self.home) #frame for the show analysis data page, master is the home frame
         self.show_analysis_data_page_frame.configure(bg_color=default_bg_color, fg_color=default_fg_color) #configure the background color of the show analysis data page frame
         self.show_analysis_data_page_frame.pack(side="top", fill="both", expand=True, anchor="center") #pack the show analysis data page frame to fill the entire home frame and allow it to expand
@@ -123,24 +127,78 @@ class GuiBuild(ctk.CTk):
         
        
         if selected_analyses[0]: #if white balance analysis is selected, plot the white balance analysis results
-            graph.plot(range(len(WB_avg_values[0])), WB_avg_values[0], label='Red', color='red') #plot the red channel median values from the analysis data
-            graph.plot(range(len(WB_avg_values[1])), WB_avg_values[1], label='Green', color='green') #plot the green channel median values from the analysis data
-            graph.plot(range(len(WB_avg_values[2])), WB_avg_values[2], label='Blue', color='blue') #plot the blue channel median values from the analysis data
-            for change in WB_changes[0]: #if there are detected changes in the white balance analysis, add vertical lines to the plot to indicate the start of the detected changes\
-                graph.axvline(x=change, color='m', linestyle='--') #add a vertical line to indicate the start of the detected change
+            graph.plot(range(len(avg_values[0][0])), avg_values[0][0], label='Red', color='red') #plot the red channel median values from the analysis data
+            graph.plot(range(len(avg_values[0][1])), avg_values[0][1], label='Green', color='green') #plot the green channel median values from the analysis data
+            graph.plot(range(len(avg_values[0][2])), avg_values[0][2], label='Blue', color='blue') #plot the blue channel median values from the analysis data
+            for start, end in zip(changes[0][0], changes[0][1]): #add vertical lines for each detected change start in the white balance analysis
+                graph.axvline(x=start, color='g', linestyle='--') #add a vertical line to indicate the start of the detected change
+                graph.axvline(x=end, color='r', linestyle='--') #add a vertical line to indicate the end of the detected change
+                graph.axvspan(start, end, color='y', alpha=0.3, label='WB Change') #add a shaded area to indicate the duration of the detected change
 
         if selected_analyses[1]: #if exposure analysis is selected, plot the exposure analysis results
-            graph.plot(range(len(Y_avg_values)), Y_avg_values, label='Y Median', color='orange') #plot the Y channel median values from the analysis data
-            for change in Y_changes[0]: #if there are detected changes in the Y channel, add vertical lines to the plot to indicate the start of the detected changes
-                graph.axvline(x=change, color='g', linestyle='--') #add a vertical line to indicate the start of the detected change
-
+            graph.plot(range(len(avg_values[1])), avg_values[1], label='Y Median', color='orange') #plot the Y channel median values from the analysis data
+            for start, end in zip(changes[1][0], changes[1][1]): #add vertical lines for each detected change start in the Y channel
+                graph.axvline(x=start, color='c', linestyle='--') #add a vertical line to indicate the start of the detected change
+                graph.axvline(x=end, color='m', linestyle='--') #add a vertical line to indicate the end of the detected change
+                graph.axvspan(start, end, color='y', alpha=0.3, label='Exposure Change') #add a shaded area to indicate the duration of the detected change
         
         graph.axvline(x=self.reference_frame_num, color='k', linestyle='--', label='Reference Frame') #plot a vertical line to indicate the reference frame based on the reference frame flag in the analysis data
 
+        self.graph_canvas.draw() #draw the analysis results plot on the canvas
 
         self.analysis_settings_widgets(self.show_analysis_data_page_frame) #call the function to create the analysis settings widgets in the show analysis data page frame for quick adjustments to the analysis parameters and re-running the analysis without having to navigate back to the project setup page
 
-        self.graph_canvas.draw() #draw the analysis results plot on the canvas
+        # Control buttons frame ----
+        self.control_buttons_frame = ctk.CTkFrame(master = self.show_analysis_data_page_frame) #frame for the control buttons
+        self.control_buttons_frame.configure(bg_color=default_bg_color, fg_color=default_fg_color) #configure the background color of the control buttons frame
+        self.control_buttons_frame.pack(side="top") #pack the control buttons frame to fill the entire show analysis data page frame and allow it to expand
+
+        #  New analysis button -----------------------------
+        def btncmd_new_analysis():
+            self.clear_home_frame() #call the function to clear the home frame before starting a new analysis, will be replaced with a function to clear the home frame when navigating between pages in the GUI
+            self.project_setup_page() #call the project setup page function to return to the project setup page and start a new analysis
+
+        self.new_analysis_button = ctk.CTkButton(master = self.control_buttons_frame, 
+                                                 text="New Analysis", 
+                                                 font=ctk.CTkFont(size=20), 
+                                                 fg_color=default_widget_color,
+                                                 command=btncmd_new_analysis) #button to start a new analysis, will be replaced with a function to clear the analysis data and return to the project setup page
+        self.new_analysis_button.grid(row=0, column=0, padx=10, pady=10, sticky="ew") #grid the new analysis button in the control buttons frame
+        # ---------------------------------------------------
+
+        # Send to Resolve button -----------------------------
+        def btncmd_send_to_resolve():
+            try:
+                DaVinci().send(changes, selected_analyses) #function to send the analysis results to DaVinci Resolve, will be replaced with a function to actually send the results to Resolve and create timeline markers or other indicators based on the detected changes in the analysis data
+                tk.messagebox.showinfo("Success", "Analysis results sent to DaVinci Resolve successfully.") #show a success message box if the analysis results were sent to Resolve successfully   
+            except Exception as e:
+                tk.messagebox.showerror("Error", f"An error occurred while sending analysis results to DaVinci Resolve: {str(e)}") #show an error message box if there was an error sending the analysis results to Resolve, with the error message for debugging purposes
+        
+        self.send_to_resolve_button = ctk.CTkButton(master = self.control_buttons_frame,
+                                                    text="Send Results to Resolve", 
+                                                    font=ctk.CTkFont(size=20), 
+                                                    fg_color=default_widget_color,
+                                                    command=btncmd_send_to_resolve) #button to send the analysis results to DaVinci Resolve, will be replaced with a function to actually send the results to Resolve and create timeline markers or other indicators based on the detected changes in the analysis data
+
+        self.send_to_resolve_button.grid(row=0, column=1, padx=10, pady=10, sticky="ew") #grid the send to resolve button in the control buttons frame
+        # ---------------------------------------------------
+
+        # Export analysis results button -----------------------------
+        def btncmd_export_analysis():
+            try:
+                Analysis.export_analysis_json(changes, avg_values) #function to export the analysis results to a JSON file, will be replaced with a function to actually export the results to a JSON file for later use or sharing
+                tk.messagebox.showinfo("Success", "Analysis results exported successfully.") #show a success message box if the analysis results were exported successfully
+            except Exception as e:
+                tk.messagebox.showerror("Error", f"An error occurred while exporting analysis results: {str(e)}") #show an error message box if there was an error exporting the analysis results, with the error message for debugging purposes
+
+        self.export_analysis_button = ctk.CTkButton(master = self.control_buttons_frame,
+                                                    text="Export Analysis Results", 
+                                                    font=ctk.CTkFont(size=20), 
+                                                    fg_color=default_widget_color,
+                                                    command=btncmd_export_analysis) #button to export the analysis results to a JSON file, will be replaced with a function to actually export the results to a JSON file for later use or sharing
+        self.export_analysis_button.grid(row=0, column=2, padx=10, pady=10, sticky="ew") #grid the export analysis button in the control buttons frame
+        # ---------------------------------------------------
+        
         
         
 
@@ -205,10 +263,10 @@ class GuiBuild(ctk.CTk):
         
 
 
-        Y_changes, RGB_changes, Y_avg_values, RGB_avg_values = Analysis(self.shot_path).detect_changes(selected_analyses, self.change_threshold, self.lookahead_frames, self.release_frames) #call the detect_changes function from the Analysis class to perform change detection on the analyzed data with a specified threshold and store the results in a variable for use in the GUI
+        changes, avg_values = Analysis(self.shot_path).detect_changes(selected_analyses, self.change_threshold, self.lookahead_frames, self.release_frames) #call the detect_changes function from the Analysis class to perform change detection on the analyzed data with a specified threshold and store the results in a variable for use in the GUI
         print("Analysis completed. Displaying results...") #placeholder for displaying the analysis results
         
-        self.show_analysis_data_page(Y_changes, RGB_changes, Y_avg_values, RGB_avg_values) #call the show_analysis_data function to display the
+        self.show_analysis_data_page(changes, avg_values) #call the show_analysis_data function to display the
 
 # Analysis import
     def import_analysis(self):
@@ -294,7 +352,7 @@ class GuiBuild(ctk.CTk):
                                                         font=ctk.CTkFont(size=16),
                                                         fg_color=default_widget_color) #textbox to enter the lookahead frames for the analysis
         self.lookahead_textbox.grid(row=1, column=1, padx=20, pady=10, sticky=labelsalignment) #grid the lookahead textbox in the parameters frame with padding
-        self.lookahead_textbox.insert(0, "5") #insert a default value of 5 in the lookahead textbox for testing purposes, will be removed in the final version of the GUI
+        self.lookahead_textbox.insert(0, "7") #insert a default value of 7 in the lookahead textbox for testing purposes, will be removed in the final version of the GUI
         
 
         # RELEASE 
@@ -307,7 +365,7 @@ class GuiBuild(ctk.CTk):
                                                         font=ctk.CTkFont(size=16),
                                                         fg_color=default_widget_color) #textbox to enter the release frames for the analysis
         self.release_textbox.grid(row=2, column=1, padx=20, pady=10, sticky=labelsalignment) #grid the release textbox in the parameters frame with padding
-        self.release_textbox.insert(0, "10") #insert a default value of 10 in the release textbox for testing purposes, will be removed in the final version of the GUI
+        self.release_textbox.insert(0, "5") #insert a default value of 5 in the release textbox for testing purposes, will be removed in the final version of the GUI
         # ---------------------------------------------------------------------------
 
         # ----------------- Analysis selections ------------------
@@ -384,7 +442,7 @@ class Analysis:
 
 
         self.Y_avg_values = None # initialize a variable to store the Y average values for use in change detection
-        self.WB_avg_values = None # initialize a variable to store the RGB average values for use in change detection
+        self.RGB_avg_values = None # initialize a variable to store the RGB average values for use in change detection
     ## LOAD ANALYSIS FUNCTION TO LOAD ANALYSIS RESULTS FROM A JSON FILE ##
     def load_analysis_json(self):
         json_file_path = filedialog.askopenfilename(title="Load Analysis Results", filetypes=[("JSON files", "*.json")]) # open file dialog to select the analysis results file to load
@@ -396,6 +454,11 @@ class Analysis:
                     analysis_data[key] = cp.array(value).get() # convert any lists in the loaded analysis data back to CuPy arrays for use in the GUI, while keeping other data types unchanged
         return analysis_data
     
+    def export_analysis_json(self, changes, avg_values):
+        json_file_path = filedialog.asksaveasfilename(title="Export Analysis Results", defaultextension=".json", filetypes=[("JSON files", "*.json")]) # open file dialog to select the location to save the analysis results file
+        with open(json_file_path, 'w') as f:
+            json.dump([{'changes': changes, 'avg_values': avg_values}], f) # save the analysis data to the selected JSON file
+
     ## PERFORM SELECTED ANALYSIS FUNCTION
     def perform_analysis(self, analysis_type):
         self.out = self.decode_with_signalstats() # call the decode_with_signalstats function to start decoding the video with the signalstats filter and store the output for processing the analysis data in the GUI
@@ -413,12 +476,25 @@ class Analysis:
         print(f"Determined bit depth: {self.bit_depth}") # print the determined bit depth for debugging purposes, will be removed in the final version of the GUI
         
         if analysis_type[0]: # if white balance analysis is selected, call the RGB_analyze function to perform the white balance analysis and store the results in a variable for use in the GUI
-            self.WB_avg_values = self.WB_analyze() # call the RGB_analyze function to perform the white balance analysis and store the results in a variable for use in the GUI
+            WB_avg_values = self.WB_analyze() # call the RGB_analyze function to perform the white balance analysis and store the results in a variable for use in the GUI
+            self.RGB_avg_values = [[], [], []] # initialize a variable to store the RGB average values for use in change detection
+            for y, u, v in zip(WB_avg_values[0], WB_avg_values[1], WB_avg_values[2]): # loop through the RGB average values for each frame and perform change detection
+                r, g, b = self.YUV_to_RGB_rec709(y, u, v) # convert the YUV average values to RGB values for use in change detection
+                self.RGB_avg_values[0].append(r) # append the converted red channel value to the list of RGB average values for change detection
+                self.RGB_avg_values[1].append(g) # append the converted green channel value to the list of RGB average values for change detection
+                self.RGB_avg_values[2].append(b) # append the converted blue channel value to the list of RGB average values for change detection
+            
+            self.RGB_derived_data = [self.derivative(self.RGB_avg_values[0], self.frame_count), 
+                                     self.derivative(self.RGB_avg_values[1], self.frame_count), 
+                                     self.derivative(self.RGB_avg_values[2], self.frame_count)] # calculate the derivative of the RGB average values for use in change detection and store it in a variable for use in the GUI
+
 
 
         if analysis_type[1]: # if exposure analysis is selected, call the Y_analyze function to perform the exposure analysis and store the results in a variable for use in the GUI
             self.Y_avg_values = self.Y_analyze() # call the Y_analyze function to perform the exposure analysis and store the results in a variable for use in the GUI
-        print(self.Y_avg_values)
+            self.Y_derived_data = self.derivative(self.Y_avg_values, self.frame_count) # calculate the derivative of the Y average values for use in change detection and store it in a variable for use in the GUI
+       
+        #print(self.Y_avg_values)
 
     ## Y ANALYZE FOOTAGE FUNCTION ##
     def Y_analyze(self):
@@ -472,7 +548,8 @@ class Analysis:
         out = (
             ffmpeg
             .input(self.shot_path)
-            .filter('scale', 320, -1)
+            .filter('scale', -2, 240)
+            .filter("colorspace", all='bt709', range='pc', fast=0)
             .filter('signalstats')
             .filter("metadata", "print")
             .output("null", f="null")
@@ -503,28 +580,42 @@ class Analysis:
 
     # ---- YUV to RGB conversion function for REC.709
     def YUV_to_RGB_rec709(self, y, u, v): 
-        r = y + 1.5748 * (v - 512) # calculate the red channel value from the YUV values using the REC.709 color space conversion formula
-        g = y - 0.1873 * (u - 512) - 0.4681 * (v - 512) # calculate the green channel value from the YUV values using the REC.709 color space conversion formula
-        b = y + 1.8556 * (u - 512) # calculate the blue channel value from the YUV values using the REC.709 color space conversion formula
+        match self.bit_depth: # determine the expected range of the YUV values based on the determined bit depth of the video and adjust the YUV values accordingly for accurate color space conversion
+            case 8:
+                r = y + 1.5748 * (v - 128) # calculate the red channel value from the YUV values using the REC.709 color space conversion formula
+                g = y - 0.1873 * (u - 128) - 0.4681 * (v - 128) # calculate the green channel value from the YUV values using the REC.709 color space conversion formula
+                b = y + 1.8556 * (u - 128) # calculate the blue channel value from the YUV values using the REC.709 color space conversion formula
 
-        r = int(max(0, min(1023, r))) # clamp the red channel value to the range of 0-1023
-        g = int(max(0, min(1023, g))) # clamp the green channel value to the range of 0-1023
-        b = int(max(0, min(1023, b))) # clamp the blue channel value to the range of 0-1023
+                r = int(max(0, min(255, r))) # clamp the red channel value to the range of 0-255
+                g = int(max(0, min(255, g))) # clamp the green channel value to the range of 0-255
+                b = int(max(0, min(255, b))) # clamp the blue channel value to the range of 0-255
+            case 10:
+                r = y + 1.5748 * (v - 512) # calculate the red channel value from the YUV values using the REC.709 color space conversion formula
+                g = y - 0.1873 * (u - 512) - 0.4681 * (v - 512) # calculate the green channel value from the YUV values using the REC.709 color space conversion formula
+                b = y + 1.8556 * (u - 512) # calculate the blue channel value from the YUV values using the REC.709 color space conversion formula
+
+                r = int(max(0, min(1023, r))) # clamp the red channel value to the range of 0-1023
+                g = int(max(0, min(1023, g))) # clamp the green channel value to the range of 0-1023
+                b = int(max(0, min(1023, b))) # clamp the blue channel value to the range of 0-1023
+            case _:
+                GuiBuild.external_error_message(self, "Backend Error: Unsupported bit depth for YUV to RGB conversion.") # show an error message if the bit depth is not supported for the YUV to RGB conversion
+                return 0, 0, 0 # return default RGB values if the bit depth is not supported for the YUV to RGB conversion
+
+
 
         return r, g, b # return the calculated RGB values for use in change detection on the RGB data
 
     # ---- change detection function, which takes the analyzed data and the threshold as input and returns a list of detected changes
     def detect_changes(self, analysis_type, threshold, lookahead_frames, release_frames):
 
-        zerotolerance = 1
-
+        zerotolerance = 0.012 # set a zero tolerance value as a percentage of the threshold to account for minor fluctuations in the data that may not represent actual changes, used to determine when a change has stabilized or stopped during change detection
+        
         if analysis_type[1]: # if exposure analysis is selected, use the Y median data for change detection
             if self.Y_avg_values is None: # if the Y average values are not available, show an error message and return empty change lists
                 self.perform_analysis(analysis_type) # perform analysis if no data is available
 
             Y_changes = [[], []] #list to store the detected changes
             change_ongoing_flag = False # initialize a flag to track whether a change is currently ongoing
-            derived_data = self.derivative(self.Y_avg_values, self.frame_count) # calculate the derivative of the Y average data for use in change detection
             direction = 0 # initialize a variable to track the direction of the change, 0 = no change, 1 = positive change, -1 = negative change
             
 
@@ -538,27 +629,27 @@ class Analysis:
             i = 0
             while i < self.frame_count - 1: # loop through the smoothed Y median data starting from the second frame
                 #segment_diff = Y_median_smooth[i + 1] - Y_median_smooth[i] # calculate the absolute difference between the current frame and the next frame
-                if not change_ongoing_flag and abs(derived_data[i]) > zerotolerance: # if there is no ongoing change and threshold was exceeded
+                if not change_ongoing_flag and abs(self.Y_derived_data[i]) > zerotolerance: # if there is no ongoing change and threshold was exceeded
                     
                     for j in range(lookahead_frames):
                         if i + j >= self.frame_count - 1: # if we have reached the end of the data during lookahead, break out of the loop
                                 break
-                        if abs(derived_data[i+j]) < zerotolerance: # if the change stabilizes in the lookahead, ignore the change
+                        if abs(self.Y_derived_data[i+j]) < zerotolerance: # if the change stabilizes in the lookahead, ignore the change
                             change_ongoing_flag = False
                             break
-                        if abs(derived_data[i]) > threshold:
+                        if abs(self.Y_derived_data[i]) > threshold:
                             change_ongoing_flag = True
                     if change_ongoing_flag: #if the change occurs in the entire lookahead
-                        direction = 1 if derived_data[i] > 0 else -1 # determine the direction of the change based on the sign of the derivative
+                        direction = 1 if self.Y_derived_data[i] > 0 else -1 # determine the direction of the change based on the sign of the derivative
                         Y_changes[0].append(i) #mark the change start
                     
                 elif change_ongoing_flag: # if the change is currently ongoing
-                    if abs(derived_data[i]) <= zerotolerance: # if the change seems to have stopped
+                    if abs(self.Y_derived_data[i]) <= zerotolerance: # if the change seems to have stopped
                         stabilization_flag = True # initialize a flag to track whether the change has stabilized
                         for j in range(release_frames): # look ahead for the specified number of frames to see if the change stopped 
                             if i + j >= self.frame_count - 1: # if we have reached the end of the data during lookahead, break out of the loop
                                 break
-                            if abs(derived_data[i + j]) > threshold: # if the change continues within the lookahead period, consider it to be ongoing
+                            if abs(self.Y_derived_data[i + j]) > threshold: # if the change continues within the lookahead period, consider it to be ongoing
                                 stabilization_flag = False # reset the stabilization flag
                                 break
                         if stabilization_flag: # if the value has stabilized
@@ -566,53 +657,46 @@ class Analysis:
                             change_ongoing_flag = False # reset the change ongoing flag
                             direction = 0 # reset the change direction variable 
 
-                    elif (direction == 1 and derived_data[i] < 0) or (direction == -1 and derived_data[i] > 0): # if the change direction reversed
+                    """ elif (direction == 1 and self.Y_derived_data[i] < 0) or (direction == -1 and self.Y_derived_data[i] > 0): # if the change direction reversed
                         Y_changes[1].append(i) # if the change continues, consider it to have ended and add the current frame to the list of detected changes
                         i += 1    
                         Y_changes[0].append(i) # if the change continues, consider it to have started again and add the current frame to the list of detected changes
                         direction = -direction # flip the change direction variable to reflect the change in direction
-                
+                 """
                 i += 1 # if there is no change, move to the next frame
         
         if analysis_type[0]: # if white balance analysis is selected, use the RGB median data for change detection
-            if self.WB_avg_values is None: # if the HSL average values are not available, show an error message and return empty change lists
-                self.perform_analysis(analysis_type) # call the HSL_analyze function to get the HSL average values for each frame and store it in a variable for use in change detection
+            if self.RGB_avg_values is None: # if the RGB average values are not available, show an error message and return empty change lists
+                self.perform_analysis(analysis_type) # call the RGB_analyze function to get the RGB average values for each frame and store it in a variable for use in change detection
             
-            RGB_avg_values = [[], [], []] # initialize a variable to store the RGB average values for use in change detection
-            for y, u, v in zip(self.WB_avg_values[0], self.WB_avg_values[1], self.WB_avg_values[2]): # loop through the RGB average values for each frame and perform change detection
-                r, g, b = self.YUV_to_RGB_rec709(y, u, v) # convert the YUV average values to RGB values for use in change detection
-                RGB_avg_values[0].append(r) # append the converted red channel value to the list of RGB average values for change detection
-                RGB_avg_values[1].append(g) # append the converted green channel value to the list of RGB average values for change detection
-                RGB_avg_values[2].append(b) # append the converted blue channel value to the list of RGB average values for change detection
-
+            
 
             WB_changes = [[], []] #list to store the detected changes for the white balance analysis
             change_ongoing_flag = False # initialize a flag to track whether a change is currently ongoing for the HSL analysis
-            derived_data = self.derivative(RGB_avg_values[1], self.frame_count) # calculate the derivative of the RGB average data for use in change detection
             direction = 0 # initialize a variable to track the direction of the change for the HSL analysis, 0 = no change, 1 = positive change, -1 = negative change
 
             i = 0
             while i < self.frame_count - 1: # loop through the RGB average data starting from the second frame for change detection
-                if not change_ongoing_flag and abs(derived_data[i]) > threshold: # if there is no ongoing change and threshold was exceeded
+                if not change_ongoing_flag and abs(self.RGB_derived_data[2][i]) > threshold: # if there is no ongoing change and threshold was exceeded
                     for j in range(lookahead_frames): # look ahead for the specified number of frames to confirm the change
                         if i + j >= self.frame_count - 1: # if we have reached the end of the data during lookahead, break out of the loop
                             break
-                        if abs(derived_data[i+j]) < zerotolerance: # if the change stabilizes in the lookahead, ignore the change
+                        if abs(self.RGB_derived_data[2][i+j]) < zerotolerance: # if the change stabilizes in the lookahead, ignore the change
                             change_ongoing_flag = False # reset the change ongoing flag if the change stabilizes during lookahead
                             break
-                        if abs(derived_data[i]) > threshold: # if the change continues in the lookahead, mark it as an ongoing change and record the direction
+                        if abs(self.RGB_derived_data[2][i]) > threshold: # if the change continues in the lookahead, mark it as an ongoing change and record the direction
                             change_ongoing_flag = True # set the change ongoing flag if the change continues during lookahead
                     if change_ongoing_flag: # if the change occurs in the entire lookahead period, mark the change start and record the direction
-                        direction = 1 if derived_data[i] > 0 else -1 # determine the direction of the change based on the sign of the derivative
+                        direction = 1 if self.RGB_derived_data[2][i] > 0 else -1 # determine the direction of the change based on the sign of the derivative
                         WB_changes[0].append(i) # mark the change start in the list of detected changes for the HSL analysis
 
                 elif change_ongoing_flag: # if the change is currently ongoing
-                    if abs(derived_data[i]) <= zerotolerance: # if the change seems to have stopped, look ahead to confirm stabilization
+                    if abs(self.RGB_derived_data[2][i]) <= zerotolerance: # if the change seems to have stopped, look ahead to confirm stabilization
                         stabilization_flag = True # initialize a flag to track whether the change has stabilized
                         for j in range(release_frames): # look ahead for the specified number of frames to see if the change stopped
                             if i + j >= self.frame_count - 1: # if we have reached the end of the data during lookahead, break out of the loop
                                 break
-                            if abs(derived_data[i + j]) > threshold: # if the change continues within the lookahead period, consider it to be ongoing
+                            if abs(self.RGB_derived_data[2][i + j]) > threshold: # if the change continues within the lookahead period, consider it to be ongoing
                                 stabilization_flag = False # reset the stabilization flag if continued change is detected during lookahead
                                 break
                         if stabilization_flag: # if the value has stabilized, mark the change end and reset flags
@@ -620,24 +704,29 @@ class Analysis:
                             change_ongoing_flag = False # reset the change ongoing flag
                             direction = 0 # reset the change direction variable
 
-                    elif (direction == 1 and derived_data[i] < 0) or (direction == -1 and derived_data[i] > 0): # if the change direction reversed, mark it as a new change and flip direction
+                    """ elif (direction == 1 and self.RGB_derived_data[2][i] < 0) or (direction == -1 and self.RGB_derived_data[2][i] > 0): # if the change direction reversed, mark it as a new change and flip direction
                         WB_changes[1].append(i) # if the change continues, consider it to have ended and add the current frame to the list of detected changes for the HSL analysis
                         i += 1
                         WB_changes[0].append(i) # if the change continues, consider it to have started again and add the current frame to the list of detected changes for the HSL analysis
                         direction *= -1 # flip the change direction variable
-                        
+                         """
                 i += 1 # if there is no change, move to the next frame
+            
 
                
         if not analysis_type[0]: # if white balance analysis is not selected, set the HSL changes list to empty lists
             WB_changes = [[], []]
-            RGB_avg_values = [[], [], []] # set the RGB average values to empty lists if white balance analysis is not selected for use in the GUI
+            self.RGB_avg_values = [[], [], []] # set the RGB average values to empty lists if white balance analysis is not selected for use in the GUI
 
         if not analysis_type[1]: # if exposure analysis is not selected, set the Y changes list to empty lists
             Y_changes = [[], []]
             self.Y_avg_values = [[], [], []] # set the Y average values to empty lists if exposure analysis is not selected for use in the GUI
+        
+        changes = [WB_changes, Y_changes] # combine the detected changes for both analyses into a single list to return to the GUI
+        print(changes) # print the detected changes for debugging purposes, will be removed in the final version of the GUI
+        avg_values = [self.RGB_avg_values, self.Y_avg_values] # store the average values for both analyses in a variable to be returned to the GUI for use in the visualization of the analysis data
 
-        return Y_changes, WB_changes, self.Y_avg_values, RGB_avg_values # return the list of detected changes for use in the GUI
+        return changes, avg_values # return the list of detected changes and average values for use in the GUI
 
 
 
@@ -661,11 +750,16 @@ class DaVinci:
         
         return footage_path, reference_marker_id # Return the footage path and the reference marker ID for use in the analysis
 
-    def send(self, change_data):
-        
-        for frame_id in change_data: # Loop through the detected change start frame IDs and add markers to the timeline
-            print(frame_id)
-            self.timeline.AddMarker(frame_id[0], 'Red', 'Marker Name', 'Notes', frame_id[1]-frame_id[0], 'Secret_Word') # Add markers to the timeline at the specified frame IDs
+    def send(self, change_data, selected_analyses):
+        if selected_analyses[0]: # if white balance analysis is selected, add markers for the detected changes in the RGB data
+             for start, end in zip(change_data[0][0], change_data[0][1]): # Loop through the detected change start frame IDs and add markers to the timeline
+                #print(start, end)
+                self.timeline.AddMarker(start, 'Yellow', 'WB change', 'Notes', end-start, 'Secret_Word') # Add markers to the timeline at the specified frame IDs
+                
+        if selected_analyses[1]: # if exposure analysis is selected, add markers for the detected changes in the Y data
+             for start, end in zip(change_data[1][0], change_data[1][1]): # Loop through the detected change start frame IDs and add markers to the timeline
+                #print(start, end)
+                self.timeline.AddMarker(start, 'Rose', 'Exposure change', 'Notes', end-start, 'Secret_Word') # Add markers to the timeline at the specified frame IDs
 
     def get_reference_marker(self):
         markers = self.timeline.GetMarkers() # Get the markers from the timeline
@@ -695,3 +789,5 @@ print(analyzed_data) # print the analyzed data to the console for testing purpos
 # Analysis(footage_path)
 DaVinci()
 GuiBuild().mainloop() #start the GUI main loop
+
+#GuiBuild().destroy() #destroy the GUI after the main loop is exited

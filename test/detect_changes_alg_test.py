@@ -105,7 +105,7 @@ for key in analyzed_data:
     print(key) # print the loaded analysis data keys
 
 derived_data = derivative(analyzed_data['Y_median_smooth'], analyzed_data['frame_num']) # calculate the derivative of the smoothed Y median data for use in change detection
-
+second_derived_data = derivative(derived_data.get(), analyzed_data['frame_num'] - 1) # calculate the second derivative of the smoothed Y median data for use in change detection
 #powerful filter method, implement!
 '''
 for i in range(analyzed_data['frame_num'] -1): 
@@ -135,8 +135,11 @@ ax.set_ylabel('Y Median') # set the y-axis label
 ax.set_title('Y Median Over Time') # set the title of the plot
 
 ax2 = ax.twinx() # create a second y-axis for plotting the derivative
-ax2.plot(derived_data.get(), color='orange') # plot the derivative of the Y median data on the second y-axis
-ax2.set_ylabel('Derivative of Y Median') # set the y-axis label for the second y-axis
+ax2.plot(derived_data.get(), color='orange', label='First Derivative') # plot the derivative of the Y median data on the second y-axis
+ax2.set_ylabel('Derivatives of Y Median') # set the y-axis label for the second y-axis
+
+ax2.plot(second_derived_data.get(), color='green', label = 'Second Derivative') # plot the second derivative of the Y median data on the third y-axis
+
 
 if changes: # if there are detected changes, add vertical lines to the plot to indicate the start and end of the detected changes
     for change in changes[0]:
