@@ -126,25 +126,26 @@ class GuiBuild(ctk.CTk):
         self.graph_canvas.get_tk_widget().pack(side="top", fill="both", expand=True) #pack the canvas to fill the entire home frame and allow it to expand
         
        
+       # PLOT THE ANALYSIS RESULTS
+       # WB plots
         if selected_analyses[0]: #if white balance analysis is selected, plot the white balance analysis results
-            graph.plot(range(len(avg_values[0][0])), avg_values[0][0], label='Red', color='red') #plot the red channel median values from the analysis data
-            graph.plot(range(len(avg_values[0][1])), avg_values[0][1], label='Green', color='green') #plot the green channel median values from the analysis data
-            graph.plot(range(len(avg_values[0][2])), avg_values[0][2], label='Blue', color='blue') #plot the blue channel median values from the analysis data
-            for start, end in zip(changes[0][0], changes[0][1]): #add vertical lines for each detected change start in the white balance analysis
-                graph.axvline(x=start, color='g', linestyle='--') #add a vertical line to indicate the start of the detected change
-                graph.axvline(x=end, color='r', linestyle='--') #add a vertical line to indicate the end of the detected change
-                graph.axvspan(start, end, color='y', alpha=0.3, label='WB Change') #add a shaded area to indicate the duration of the detected change
+            graph.plot(range(len(avg_values[0])), avg_values[0], label='CCT', color='red') #plot the CCT channel
+            for start, end in zip(changes[0][0], changes[0][1]): #add vertical lines for each detected change  
+                graph.axvline(x=start, color='g', linestyle='--') #add a vertical line to indicate the start 
+                graph.axvline(x=end, color='r', linestyle='--') #add a vertical line to indicate the end 
+                graph.axvspan(start, end, color='y', alpha=0.3, label='WB Change') #highlight the change duration
 
+        # Exposure plots
         if selected_analyses[1]: #if exposure analysis is selected, plot the exposure analysis results
-            graph.plot(range(len(avg_values[1])), avg_values[1], label='Y Median', color='orange') #plot the Y channel median values from the analysis data
-            for start, end in zip(changes[1][0], changes[1][1]): #add vertical lines for each detected change start in the Y channel
-                graph.axvline(x=start, color='c', linestyle='--') #add a vertical line to indicate the start of the detected change
-                graph.axvline(x=end, color='m', linestyle='--') #add a vertical line to indicate the end of the detected change
-                graph.axvspan(start, end, color='y', alpha=0.3, label='Exposure Change') #add a shaded area to indicate the duration of the detected change
+            graph.plot(range(len(avg_values[1])), avg_values[1], label='Y Median', color='orange') #plot the Y channel 
+            for start, end in zip(changes[1][0], changes[1][1]): #add vertical lines for each detected change 
+                graph.axvline(x=start, color='c', linestyle='--') #add a vertical line to indicate the start 
+                graph.axvline(x=end, color='m', linestyle='--') #add a vertical line to indicate the end 
+                graph.axvspan(start, end, color='y', alpha=0.3, label='Exposure Change') #highlight the change duration
         
-        graph.axvline(x=self.reference_frame_num, color='k', linestyle='--', label='Reference Frame') #plot a vertical line to indicate the reference frame based on the reference frame flag in the analysis data
+        graph.axvline(x=self.reference_frame_num, color='k', linestyle='--', label='Reference Frame') #plot the reference frame
 
-        self.graph_canvas.draw() #draw the analysis results plot on the canvas
+        self.graph_canvas.draw() #draw the plots on the canvas
 
         self.analysis_settings_widgets(self.show_analysis_data_page_frame) #call the function to create the analysis settings widgets in the show analysis data page frame for quick adjustments to the analysis parameters and re-running the analysis without having to navigate back to the project setup page
 
@@ -442,7 +443,7 @@ class Analysis:
 
 
         self.Y_avg_values = None # initialize a variable to store the Y average values for use in change detection
-        self.RGB_avg_values = None # initialize a variable to store the RGB average values for use in change detection
+        self.CCT_avg_values = None # initialize a variable to store the CCT average values for use in change detection
     ## LOAD ANALYSIS FUNCTION TO LOAD ANALYSIS RESULTS FROM A JSON FILE ##
     def load_analysis_json(self):
         json_file_path = filedialog.askopenfilename(title="Load Analysis Results", filetypes=[("JSON files", "*.json")]) # open file dialog to select the analysis results file to load
@@ -477,23 +478,26 @@ class Analysis:
         
         if analysis_type[0]: # if white balance analysis is selected, call the RGB_analyze function to perform the white balance analysis and store the results in a variable for use in the GUI
             WB_avg_values = self.WB_analyze() # call the RGB_analyze function to perform the white balance analysis and store the results in a variable for use in the GUI
-            self.RGB_avg_values = [[], [], []] # initialize a variable to store the RGB average values for use in change detection
+            self.CCT_avg_values = [] # initialize a variable to store the RGB average values for use in change detection
             for y, u, v in zip(WB_avg_values[0], WB_avg_values[1], WB_avg_values[2]): # loop through the RGB average values for each frame and perform change detection
                 r, g, b = self.YUV_to_RGB_rec709(y, u, v) # convert the YUV average values to RGB values for use in change detection
-                self.RGB_avg_values[0].append(r) # append the converted red channel value to the list of RGB average values for change detection
+
+                self.CCT_avg_values.append(self.RGB_to_CCT(r, g, b)) # convert the RGB average values to CCT values for use in change detection and store it in a variable for use in the GUI    
+            """ self.RGB_avg_values[0].append(r) # append the converted red channel value to the list of RGB average values for change detection
                 self.RGB_avg_values[1].append(g) # append the converted green channel value to the list of RGB average values for change detection
                 self.RGB_avg_values[2].append(b) # append the converted blue channel value to the list of RGB average values for change detection
-            
-            self.RGB_derived_data = [self.derivative(self.RGB_avg_values[0], self.frame_count), 
+            """
+            """ self.RGB_derived_data = [self.derivative(self.RGB_avg_values[0], self.frame_count), 
                                      self.derivative(self.RGB_avg_values[1], self.frame_count), 
                                      self.derivative(self.RGB_avg_values[2], self.frame_count)] # calculate the derivative of the RGB average values for use in change detection and store it in a variable for use in the GUI
-
-
+            """ 
+            print(self.CCT_avg_values) # print the CCT average values for debugging purposes, will be removed in the final version of the GUI
+            self.CCT_derived_data = self.derivative(self.CCT_avg_values, self.frame_count) # calculate the derivative of the CCT average values for use in change detection and store it in a variable for use in the GUI
 
         if analysis_type[1]: # if exposure analysis is selected, call the Y_analyze function to perform the exposure analysis and store the results in a variable for use in the GUI
             self.Y_avg_values = self.Y_analyze() # call the Y_analyze function to perform the exposure analysis and store the results in a variable for use in the GUI
             self.Y_derived_data = self.derivative(self.Y_avg_values, self.frame_count) # calculate the derivative of the Y average values for use in change detection and store it in a variable for use in the GUI
-       
+        #print(self.RGB_avg_values[0])
         #print(self.Y_avg_values)
 
     ## Y ANALYZE FOOTAGE FUNCTION ##
@@ -520,8 +524,6 @@ class Analysis:
         
         valtypes = ['YAVG', 'UAVG', 'VAVG'] #set of value types
         YUV_avg_values = [[],[],[]]
-
-        
 
         for line in self.out: 
             for valtype, i in zip(valtypes, range(0, len(valtypes))): # loop through the HSL value types and their indices
@@ -586,17 +588,17 @@ class Analysis:
                 g = y - 0.1873 * (u - 128) - 0.4681 * (v - 128) # calculate the green channel value from the YUV values using the REC.709 color space conversion formula
                 b = y + 1.8556 * (u - 128) # calculate the blue channel value from the YUV values using the REC.709 color space conversion formula
 
-                r = int(max(0, min(255, r))) # clamp the red channel value to the range of 0-255
-                g = int(max(0, min(255, g))) # clamp the green channel value to the range of 0-255
-                b = int(max(0, min(255, b))) # clamp the blue channel value to the range of 0-255
+                r = float(max(0, min(255, r))) # clamp the red channel value to the range of 0-255
+                g = float(max(0, min(255, g))) # clamp the green channel value to the range of 0-255
+                b = float(max(0, min(255, b))) # clamp the blue channel value to the range of 0-255
             case 10:
                 r = y + 1.5748 * (v - 512) # calculate the red channel value from the YUV values using the REC.709 color space conversion formula
                 g = y - 0.1873 * (u - 512) - 0.4681 * (v - 512) # calculate the green channel value from the YUV values using the REC.709 color space conversion formula
                 b = y + 1.8556 * (u - 512) # calculate the blue channel value from the YUV values using the REC.709 color space conversion formula
 
-                r = int(max(0, min(1023, r))) # clamp the red channel value to the range of 0-1023
-                g = int(max(0, min(1023, g))) # clamp the green channel value to the range of 0-1023
-                b = int(max(0, min(1023, b))) # clamp the blue channel value to the range of 0-1023
+                r = float(max(0, min(1023, r))) # clamp the red channel value to the range of 0-1023
+                g = float(max(0, min(1023, g))) # clamp the green channel value to the range of 0-1023
+                b = float(max(0, min(1023, b))) # clamp the blue channel value to the range of 0-1023
             case _:
                 GuiBuild.external_error_message(self, "Backend Error: Unsupported bit depth for YUV to RGB conversion.") # show an error message if the bit depth is not supported for the YUV to RGB conversion
                 return 0, 0, 0 # return default RGB values if the bit depth is not supported for the YUV to RGB conversion
@@ -605,118 +607,113 @@ class Analysis:
 
         return r, g, b # return the calculated RGB values for use in change detection on the RGB data
 
+
+    # ---- RGB to CCT conversion function
+    def RGB_to_CCT(self, r, g, b):
+        # Convert RGB to XYZ color space
+        match self.bit_depth: # determine the expected range of the RGB values based on the determined bit depth of the video and adjust the RGB values accordingly for accurate color space conversion
+            case 8:                
+                r = r / 255.0 # normalize the red channel value to the range of 0-1
+                g = g / 255.0 # normalize the green channel value to the range of 0-1
+                b = b / 255.0 # normalize the blue channel value to the range of 0-1
+            case 10:                
+                r = r / 1023.0 # normalize the red channel value to the range of 0-1
+                g = g / 1023.0 # normalize the green channel value to the range of 0-1
+                b = b / 1023.0 # normalize the blue channel value to the range of 0-1
+
+        X = (-0.14282 * r) + (1.54924 * g) + (-0.95641 * b) # calculate the X value in the XYZ color space from the RGB values using the REC.709 color space conversion formula
+        Y = (-0.32466 * r) + (1.57837 * g) + (-0.73191 * b) # calculate the Y value in the XYZ color space from the RGB values using the REC.709 color space conversion formula
+        Z = (-0.68202 * r) + (0.77073 * g) + (0.56332 * b) # calculate the Z value in the XYZ color space from the RGB values using the REC.709 color space conversion formula
+
+        # Calculate chromaticity coordinates
+        x = X / (X + Y + Z)
+        y = Y / (X + Y + Z)
+
+        # Calculate n
+        n = (x - 0.3320) / (0.1858 - y)
+
+        # Calculate CCT
+        CCT = 449 * n**3 + 3525 * n**2 + 6823.3 * n + 5520.33
+
+        return CCT # return the calculated CCT value for use in change detection on the white balance data
+
+
     # ---- change detection function, which takes the analyzed data and the threshold as input and returns a list of detected changes
     def detect_changes(self, analysis_type, threshold, lookahead_frames, release_frames):
-
-        zerotolerance = 0.012 # set a zero tolerance value as a percentage of the threshold to account for minor fluctuations in the data that may not represent actual changes, used to determine when a change has stabilized or stopped during change detection
         
-        if analysis_type[1]: # if exposure analysis is selected, use the Y median data for change detection
-            if self.Y_avg_values is None: # if the Y average values are not available, show an error message and return empty change lists
-                self.perform_analysis(analysis_type) # perform analysis if no data is available
-
-            Y_changes = [[], []] #list to store the detected changes
+        def change_detection_loop(derived_data):
+            zerotolerance = threshold 
+            changes_list = [[], []] #list to store the detected changes, index 0 for change starts and index 1 for change ends
             change_ongoing_flag = False # initialize a flag to track whether a change is currently ongoing
             direction = 0 # initialize a variable to track the direction of the change, 0 = no change, 1 = positive change, -1 = negative change
-            
 
-            
-            # --- flooring of noise data
-            '''
-            for i in range(analyzed_data['frame_num'] -1):
-                if abs(derived_data[i]) < 0.12:
-                    derived_data[i] = 0
-            '''
-            i = 0
-            while i < self.frame_count - 1: # loop through the smoothed Y median data starting from the second frame
-                #segment_diff = Y_median_smooth[i + 1] - Y_median_smooth[i] # calculate the absolute difference between the current frame and the next frame
-                if not change_ongoing_flag and abs(self.Y_derived_data[i]) > zerotolerance: # if there is no ongoing change and threshold was exceeded
-                    
+            for i in range(self.frame_count - 1): # loop through the analyzed data starting from the second frame for change detection
+                if not change_ongoing_flag and abs(derived_data[i]) > threshold: # if there is no ongoing change and threshold was exceeded
                     for j in range(lookahead_frames):
                         if i + j >= self.frame_count - 1: # if we have reached the end of the data during lookahead, break out of the loop
                                 break
-                        if abs(self.Y_derived_data[i+j]) < zerotolerance: # if the change stabilizes in the lookahead, ignore the change
+                        if abs(derived_data[i+j]) < zerotolerance: # if the change stabilizes in the lookahead, ignore the change
                             change_ongoing_flag = False
                             break
-                        if abs(self.Y_derived_data[i]) > threshold:
+                        if abs(derived_data[i]) > threshold:
                             change_ongoing_flag = True
                     if change_ongoing_flag: #if the change occurs in the entire lookahead
-                        direction = 1 if self.Y_derived_data[i] > 0 else -1 # determine the direction of the change based on the sign of the derivative
-                        Y_changes[0].append(i) #mark the change start
+                        direction = 1 if derived_data[i] > 0 else -1 # determine the direction of the change based on the sign of the derivative
+                        changes_list[0].append(i) #mark the change start
                     
                 elif change_ongoing_flag: # if the change is currently ongoing
-                    if abs(self.Y_derived_data[i]) <= zerotolerance: # if the change seems to have stopped
+                    if abs(derived_data[i]) <= zerotolerance: # if the change seems to have stopped
                         stabilization_flag = True # initialize a flag to track whether the change has stabilized
                         for j in range(release_frames): # look ahead for the specified number of frames to see if the change stopped 
                             if i + j >= self.frame_count - 1: # if we have reached the end of the data during lookahead, break out of the loop
                                 break
-                            if abs(self.Y_derived_data[i + j]) > threshold: # if the change continues within the lookahead period, consider it to be ongoing
+                            if abs(derived_data[i + j]) > threshold: # if the change continues within the lookahead period, consider it to be ongoing
                                 stabilization_flag = False # reset the stabilization flag
                                 break
                         if stabilization_flag: # if the value has stabilized
-                            Y_changes[1].append(i) # mark the change end
+                            changes_list[1].append(i) # mark the change end
                             change_ongoing_flag = False # reset the change ongoing flag
                             direction = 0 # reset the change direction variable 
 
-                    """ elif (direction == 1 and self.Y_derived_data[i] < 0) or (direction == -1 and self.Y_derived_data[i] > 0): # if the change direction reversed
-                        Y_changes[1].append(i) # if the change continues, consider it to have ended and add the current frame to the list of detected changes
-                        i += 1    
-                        Y_changes[0].append(i) # if the change continues, consider it to have started again and add the current frame to the list of detected changes
-                        direction = -direction # flip the change direction variable to reflect the change in direction
-                 """
-                i += 1 # if there is no change, move to the next frame
-        
-        if analysis_type[0]: # if white balance analysis is selected, use the RGB median data for change detection
-            if self.RGB_avg_values is None: # if the RGB average values are not available, show an error message and return empty change lists
-                self.perform_analysis(analysis_type) # call the RGB_analyze function to get the RGB average values for each frame and store it in a variable for use in change detection
-            
-            
-
-            WB_changes = [[], []] #list to store the detected changes for the white balance analysis
-            change_ongoing_flag = False # initialize a flag to track whether a change is currently ongoing for the HSL analysis
-            direction = 0 # initialize a variable to track the direction of the change for the HSL analysis, 0 = no change, 1 = positive change, -1 = negative change
-
-            i = 0
-            while i < self.frame_count - 1: # loop through the RGB average data starting from the second frame for change detection
-                if not change_ongoing_flag and abs(self.RGB_derived_data[2][i]) > threshold: # if there is no ongoing change and threshold was exceeded
-                    for j in range(lookahead_frames): # look ahead for the specified number of frames to confirm the change
-                        if i + j >= self.frame_count - 1: # if we have reached the end of the data during lookahead, break out of the loop
-                            break
-                        if abs(self.RGB_derived_data[2][i+j]) < zerotolerance: # if the change stabilizes in the lookahead, ignore the change
-                            change_ongoing_flag = False # reset the change ongoing flag if the change stabilizes during lookahead
-                            break
-                        if abs(self.RGB_derived_data[2][i]) > threshold: # if the change continues in the lookahead, mark it as an ongoing change and record the direction
-                            change_ongoing_flag = True # set the change ongoing flag if the change continues during lookahead
-                    if change_ongoing_flag: # if the change occurs in the entire lookahead period, mark the change start and record the direction
-                        direction = 1 if self.RGB_derived_data[2][i] > 0 else -1 # determine the direction of the change based on the sign of the derivative
-                        WB_changes[0].append(i) # mark the change start in the list of detected changes for the HSL analysis
-
-                elif change_ongoing_flag: # if the change is currently ongoing
-                    if abs(self.RGB_derived_data[2][i]) <= zerotolerance: # if the change seems to have stopped, look ahead to confirm stabilization
-                        stabilization_flag = True # initialize a flag to track whether the change has stabilized
-                        for j in range(release_frames): # look ahead for the specified number of frames to see if the change stopped
+                    elif (direction == 1 and derived_data[i] < 0) or (direction == -1 and derived_data[i] > 0): # if the change direction reversed
+                        flip_flag = True
+                        for j in range(lookahead_frames): # look ahead for the specified number of frames to confirm the change direction reversal
                             if i + j >= self.frame_count - 1: # if we have reached the end of the data during lookahead, break out of the loop
                                 break
-                            if abs(self.RGB_derived_data[2][i + j]) > threshold: # if the change continues within the lookahead period, consider it to be ongoing
-                                stabilization_flag = False # reset the stabilization flag if continued change is detected during lookahead
+                            if (direction == 1 and derived_data[i + j] > 0) or (direction == -1 and derived_data[i + j] < 0): # if the change direction reversal is confirmed within the lookahead period, consider it to be a new change
+                                flip_flag = False # reset the flip flag if the change direction reversal is confirmed during lookahead
                                 break
-                        if stabilization_flag: # if the value has stabilized, mark the change end and reset flags
-                            WB_changes[1].append(i) # mark the change end in the list of detected changes for the HSL analysis
-                            change_ongoing_flag = False # reset the change ongoing flag
-                            direction = 0 # reset the change direction variable
-
-                    """ elif (direction == 1 and self.RGB_derived_data[2][i] < 0) or (direction == -1 and self.RGB_derived_data[2][i] > 0): # if the change direction reversed, mark it as a new change and flip direction
-                        WB_changes[1].append(i) # if the change continues, consider it to have ended and add the current frame to the list of detected changes for the HSL analysis
-                        i += 1
-                        WB_changes[0].append(i) # if the change continues, consider it to have started again and add the current frame to the list of detected changes for the HSL analysis
-                        direction *= -1 # flip the change direction variable
-                         """
-                i += 1 # if there is no change, move to the next frame
+                        if flip_flag: # if the change direction reversal is not confirmed during lookahead, consider it to be ongoing
+                            changes_list[1].append(i) # if the change continues, consider it to have ended and add the current frame to the list of detected changes for the analysis
+                            i += 1
+                            changes_list[0].append(i) # if the change continues, consider it to have started again and add the current frame to the list of detected changes for the analysis
+                            direction *= -1 # flip the change direction variable
             
+            return changes_list # return the list of detected changes for the analysis to be used in the GUI
+        
+        
+        
+        
+        if analysis_type[1]: # if exposure analysis is selected, use the Y median data for change detection
+            if self.Y_avg_values is None: # if the Y average values are not available, show an error message and return empty change lists
+                self.perform_analysis(analysis_type) # perform analysis if no data is available
+            # Change detection loop ---------------------------------------------------------------------------------------------------
+            Y_changes = change_detection_loop(self.Y_derived_data) # call the change detection loop function to detect changes in the Y average data and store the detected changes in a variable for use in the GUI
+        
+        if analysis_type[0]: # if white balance analysis is selected, use the RGB median data for change detection
+            if self.CCT_avg_values is None: # if the RGB average values are not available, show an error message and return empty change lists
+                self.perform_analysis(analysis_type) # call the RGB_analyze function to get the RGB average values for each frame and store it in a variable for use in change detection
+            # Change detection loop ---------------------------------------------------------------------------------------------------
+            
+            
+
+            WB_changes = change_detection_loop(self.CCT_derived_data) # call the change detection loop function to detect changes in the RGB average data and store the detected changes in a variable for use in the GUI
+        
 
                
         if not analysis_type[0]: # if white balance analysis is not selected, set the HSL changes list to empty lists
             WB_changes = [[], []]
-            self.RGB_avg_values = [[], [], []] # set the RGB average values to empty lists if white balance analysis is not selected for use in the GUI
+            self.CCT_avg_values = [[], [], []] # set the RGB average values to empty lists if white balance analysis is not selected for use in the GUI
 
         if not analysis_type[1]: # if exposure analysis is not selected, set the Y changes list to empty lists
             Y_changes = [[], []]
@@ -724,7 +721,7 @@ class Analysis:
         
         changes = [WB_changes, Y_changes] # combine the detected changes for both analyses into a single list to return to the GUI
         print(changes) # print the detected changes for debugging purposes, will be removed in the final version of the GUI
-        avg_values = [self.RGB_avg_values, self.Y_avg_values] # store the average values for both analyses in a variable to be returned to the GUI for use in the visualization of the analysis data
+        avg_values = [self.CCT_avg_values, self.Y_avg_values] # store the average values for both analyses in a variable to be returned to the GUI for use in the visualization of the analysis data
 
         return changes, avg_values # return the list of detected changes and average values for use in the GUI
 
