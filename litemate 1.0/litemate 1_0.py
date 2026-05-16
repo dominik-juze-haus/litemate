@@ -28,7 +28,7 @@ import colorsys #colorsys is a library for converting between different color sy
 
 default_bg_color = "#001523"
 default_fg_color = "#001523"
-default_widget_color = "#0082A5"
+default_widget_color = "#A56B00"
 version = "0.1.0"
 
 
@@ -41,8 +41,7 @@ class GuiBuild(ctk.CTk):
     def __init__(self):
         super().__init__() #initialize the parent class (CTk)
 
-        ## --------UPDATE WINDOW ICON PATH!!!!!!!!!!!!!--------
-        #self.after(201, lambda :self.iconbitmap(r'C:\ZCoding\litemate\icon.ico')) #set the window icon after a short delay to ensure it loads correctly
+        
         # ---- DEFAULT VARIABLES ----
         
         self.shot_path, self.reference_frame_num = DaVinci().getvideo() #variable to store the selected shot path    
@@ -50,7 +49,7 @@ class GuiBuild(ctk.CTk):
 
         self.selected_analyses = [False, False] #variable to store the selected analyses for use in the GUI, default is both analyses selected
 
-        self.geometry('600x400')
+        
         self.configure(bg_color=default_bg_color, fg_color=default_fg_color) #configure the background color of the window
 
         self.home = ctk.CTkFrame(self) #create a frame for the home page
@@ -58,10 +57,11 @@ class GuiBuild(ctk.CTk):
         self.home.configure(bg_color=default_bg_color, fg_color=default_fg_color) #configure the background color of the home frame
 
         self.title(f"LiteMate {version}") #set the title of the window
+        self.iconbitmap(r'litemate 1.0\stardust.ico') #set the window icon, will be replaced with a function to set the window icon in the final version of the GUI
         self.project_setup_page()
-
 # ---- MAIN PAGE AND FUNCTION DEFINITIONS ----
     def project_setup_page(self):
+        self.geometry('600x400')
         self.project_setup_page_frame = ctk.CTkFrame(master = self.home) #frame for the project setup page, master is the home frame
         self.project_setup_page_frame.configure(bg_color=default_bg_color, fg_color=default_fg_color) #configure the background color of the project setup page frame
         self.project_setup_page_frame.pack(side="top", fill="both", expand=True, anchor="center") #pack the project setup page frame to fill the entire home frame and allow it to expand
