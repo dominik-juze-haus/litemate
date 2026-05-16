@@ -48,6 +48,8 @@ class GuiBuild(ctk.CTk):
         self.shot_path, self.reference_frame_num = DaVinci().getvideo() #variable to store the selected shot path    
         self.analysis_data = None #variable to store the analysis data for use in the GUI
 
+        self.selected_analyses = [False, False] #variable to store the selected analyses for use in the GUI, default is both analyses selected
+
         self.geometry('600x400')
         self.configure(bg_color=default_bg_color, fg_color=default_fg_color) #configure the background color of the window
 
@@ -107,7 +109,9 @@ class GuiBuild(ctk.CTk):
 
 # ----- SHOW ANALYSIS DATA PAGE -----
     def show_analysis_data_page(self, changes, avg_values):
-        selected_analyses = [var.get() for var in self.analysis_selection_tkvar] #get the values of the analysis selection checkboxes
+
+        self.changes, self.avg_values = changes, avg_values #store the analysis results in instance variables for use in the update graph function when adjusting the analysis parameters with the analysis settings widgets for quick adjustments to the analysis parameters and re-running the analysis without having to navigate back to the project setup page        
+        self.selected_analyses = [var.get() for var in self.analysis_selection_tkvar] #get the values of the analysis selection checkboxes
 
          # CLEAR THE HOME FRAME
         self.clear_home_frame() #call the function to clear the home frame before displaying the analysis results, will be replaced with a function to clear the home frame when navigating between pages in the GUI
@@ -119,33 +123,14 @@ class GuiBuild(ctk.CTk):
         
            
         # PREPARE SUBPLOT
-        results_plot_fig, graph = plt.subplots() #create a figure for the analysis results plot
+        self.results_plot_fig, self.graph = plt.subplots() #create a figure for the analysis results plot
 
         # PREPARE THE GRAPH CANVAS
-        self.graph_canvas = FigureCanvasTkAgg(results_plot_fig, master=self.show_analysis_data_page_frame) #create a canvas to display the analysis results plot in the GUI
+        self.graph_canvas = FigureCanvasTkAgg(self.results_plot_fig, master=self.show_analysis_data_page_frame) #create a canvas to display the analysis results plot in the GUI
         self.graph_canvas.get_tk_widget().pack(side="top", fill="both", expand=True) #pack the canvas to fill the entire home frame and allow it to expand
         
        
-       # PLOT THE ANALYSIS RESULTS
-       # WB plots
-        if selected_analyses[0]: #if white balance analysis is selected, plot the white balance analysis results
-            graph.plot(range(len(avg_values[0])), avg_values[0], label='CCT', color='red') #plot the CCT channel
-            for start, end in zip(changes[0][0], changes[0][1]): #add vertical lines for each detected change  
-                graph.axvline(x=start, color='g', linestyle='--') #add a vertical line to indicate the start 
-                graph.axvline(x=end, color='r', linestyle='--') #add a vertical line to indicate the end 
-                graph.axvspan(start, end, color='y', alpha=0.3, label='WB Change') #highlight the change duration
-
-        # Exposure plots
-        if selected_analyses[1]: #if exposure analysis is selected, plot the exposure analysis results
-            graph.plot(range(len(avg_values[1])), avg_values[1], label='Y Median', color='orange') #plot the Y channel 
-            for start, end in zip(changes[1][0], changes[1][1]): #add vertical lines for each detected change 
-                graph.axvline(x=start, color='c', linestyle='--') #add a vertical line to indicate the start 
-                graph.axvline(x=end, color='m', linestyle='--') #add a vertical line to indicate the end 
-                graph.axvspan(start, end, color='y', alpha=0.3, label='Exposure Change') #highlight the change duration
-        
-        graph.axvline(x=self.reference_frame_num, color='k', linestyle='--', label='Reference Frame') #plot the reference frame
-
-        self.graph_canvas.draw() #draw the plots on the canvas
+       
 
         self.analysis_settings_widgets(self.show_analysis_data_page_frame) #call the function to create the analysis settings widgets in the show analysis data page frame for quick adjustments to the analysis parameters and re-running the analysis without having to navigate back to the project setup page
 
@@ -165,12 +150,16 @@ class GuiBuild(ctk.CTk):
                                                  fg_color=default_widget_color,
                                                  command=btncmd_new_analysis) #button to start a new analysis, will be replaced with a function to clear the analysis data and return to the project setup page
         self.new_analysis_button.grid(row=0, column=0, padx=10, pady=10, sticky="ew") #grid the new analysis button in the control buttons frame
+        
+        # PLOT THE ANALYSIS RESULTS 
+        self.plot_graph() #call the function to plot the analysis results on the graph
+        #self.after(100, lambda: self.graph_canvas.draw()) #add a short delay before drawing the plots on the canvas to ensure that the canvas is fully initialized before drawing, for better performance and to avoid potential issues with the canvas not updating correctly when the analysis results are first displayed in the GUI
         # ---------------------------------------------------
 
         # Send to Resolve button -----------------------------
         def btncmd_send_to_resolve():
             try:
-                DaVinci().send(changes, selected_analyses) #function to send the analysis results to DaVinci Resolve, will be replaced with a function to actually send the results to Resolve and create timeline markers or other indicators based on the detected changes in the analysis data
+                DaVinci().send(self.changes, self.selected_analyses) #function to send the analysis results to DaVinci Resolve, will be replaced with a function to actually send the results to Resolve and create timeline markers or other indicators based on the detected changes in the analysis data
                 tk.messagebox.showinfo("Success", "Analysis results sent to DaVinci Resolve successfully.") #show a success message box if the analysis results were sent to Resolve successfully   
             except Exception as e:
                 tk.messagebox.showerror("Error", f"An error occurred while sending analysis results to DaVinci Resolve: {str(e)}") #show an error message box if there was an error sending the analysis results to Resolve, with the error message for debugging purposes
@@ -187,7 +176,7 @@ class GuiBuild(ctk.CTk):
         # Export analysis results button -----------------------------
         def btncmd_export_analysis():
             try:
-                Analysis.export_analysis_json(changes, avg_values) #function to export the analysis results to a JSON file, will be replaced with a function to actually export the results to a JSON file for later use or sharing
+                Analysis.export_analysis_json(self.changes, self.avg_values) #function to export the analysis results to a JSON file, will be replaced with a function to actually export the results to a JSON file for later use or sharing
                 tk.messagebox.showinfo("Success", "Analysis results exported successfully.") #show a success message box if the analysis results were exported successfully
             except Exception as e:
                 tk.messagebox.showerror("Error", f"An error occurred while exporting analysis results: {str(e)}") #show an error message box if there was an error exporting the analysis results, with the error message for debugging purposes
@@ -208,87 +197,21 @@ class GuiBuild(ctk.CTk):
 
 # Function to start the frame by frame analysis
     def start_analysis(self):
-        selected_analyses = [var.get() for var in self.analysis_selection_tkvar] #get the values of the analysis selection checkboxes
-        
-        if not any([self.shot_path]): #if no shot is selected, show a warning message
-            tk.messagebox.showwarning("No Shot Selected", "Please select a shot to start the analysis.")
-            return
-
-        if not any(selected_analyses): #if no analyses are selected, show a warning message
-            tk.messagebox.showwarning("No Analysis Selected", "Please select at least one analysis to start.")
-            return
-        
-        if selected_analyses[0] and selected_analyses[1]: #if both analyses are selected, print messages (placeholder for starting the analyses)
-            print("Selected WB and Exposure...") #placeholder for starting the white balance analysis
-        elif selected_analyses[0]: #if only white balance analysis is selected, print a message (placeholder for starting the white balance analysis)
-            print("Selected WB...") #placeholder for starting the white balance analysis
-        elif selected_analyses[1]: #if only exposure analysis is selected, print a message (placeholder for starting the exposure analysis)
-            print("Selected Exposure...") #placeholder for starting the exposure analysis
-        
-               
-        # Get the parameter values from the entry boxes and validate them
-        threshold_text = self.threshold_textbox.get().strip()
-        if threshold_text == "":
-            tk.messagebox.showwarning("No Threshold Value", "Please enter a threshold value.")
-            return
-        try:
-            self.change_threshold = float(threshold_text)
-        except ValueError:
-            tk.messagebox.showwarning("Invalid Threshold Value", "Please enter a valid float threshold value.")
-            return
-        
-
-        lookahead_text = self.lookahead_textbox.get().strip()
-        if lookahead_text == "":
-            tk.messagebox.showwarning("No Lookahead Value", "Please enter a lookahead value.")
-            return
-        try:            
-            self.lookahead_frames = int(lookahead_text)
-        except ValueError:
-            tk.messagebox.showwarning("Invalid Lookahead Value", "Please enter a valid integer lookahead value.")
-            return
-        
-
-        release_text = self.release_textbox.get().strip()
-        if release_text == "":
-            tk.messagebox.showwarning("No Release Value", "Please enter a release value.")
-            return
-        try:
-            self.release_frames = int(release_text)
-        except ValueError:
-            tk.messagebox.showwarning("Invalid Release Value", "Please enter a valid integer release value.")
-            return
-        
-        
-        
-        
-
-
-        changes, avg_values = Analysis(self.shot_path).detect_changes(selected_analyses, self.change_threshold, self.lookahead_frames, self.release_frames) #call the detect_changes function from the Analysis class to perform change detection on the analyzed data with a specified threshold and store the results in a variable for use in the GUI
+        self.get_current_settings() #call the function to get the current settings from the analysis settings widgets before starting the analysis, to ensure that the analysis is performed with the most up-to-date settings
+        changes, avg_values = Analysis(self.shot_path).detect_changes(self.selected_analyses, self.change_threshold, self.lookahead_frames, self.release_frames) #call the detect_changes function from the Analysis class to perform change detection on the analyzed data with a specified threshold and store the results in a variable for use in the GUI
         print("Analysis completed. Displaying results...") #placeholder for displaying the analysis results
         
-        self.show_analysis_data_page(changes, avg_values) #call the show_analysis_data function to display the
+        self.changes = changes
+        self.avg_values = avg_values
+        self.show_analysis_data_page(self.changes, self.avg_values) #call the show_analysis_data function to display the
 
 # Analysis import
     def import_analysis(self):
-        selected_analyses = [var.get() for var in self.analysis_selection_tkvar] #get the values of the analysis selection checkboxes
-
-        if not any(selected_analyses): #if no analyses are selected, show a warning message
-            tk.messagebox.showwarning("No Analysis Selected", "Please select at least one analysis to start.")
-            return
-        
-        if selected_analyses[0] and selected_analyses[1]: #if both analyses are selected, print messages (placeholder for starting the analyses)
-            print("Selected WB and Exposure...") #placeholder for starting the white balance analysis
-        elif selected_analyses[0]: #if only white balance analysis is selected, print a message (placeholder for starting the white balance analysis)
-            print("Selected WB...") #placeholder for starting the white balance analysis
-        elif selected_analyses[1]: #if only exposure analysis is selected, print a message (placeholder for starting the exposure analysis)
-            print("Selected Exposure...") #placeholder for starting the exposure analysis
-
         print("Importing analysis results...") #placeholder for importing analysis results
         analysis_path = filedialog.askopenfilename() #open a file dialog to select the analysis results file
         analysis_path = os.path.normpath(analysis_path) #normalize the selected analysis results file path
         print(f"Selected analysis results file: {analysis_path}") #print the selected analysis results file path
-        #self.show_analysis_data_page(Y_changes, RGB_changes, Y_avg_values, RGB_avg_values) #call the show_analysis_data function to display the analysis data in the GUI
+        #self.show_analysis_data_page(self.changes, self.avg_values) #call the show_analysis_data function to display the analysis data in the GUI
 
 
     #------ BUTTON COMMANDS ------
@@ -340,8 +263,11 @@ class GuiBuild(ctk.CTk):
                                                         font=ctk.CTkFont(size=16),
                                                         fg_color=default_widget_color,) #textbox to enter the change detection threshold for the analysis
         self.threshold_textbox.grid(row=0, column=1, padx=20, pady=10) #grid the threshold textbox in the parameters frame with padding
-        self.threshold_textbox.insert(0, "0.3") #insert a default value of 0.3 in the threshold textbox for testing purposes, will be removed in the final version of the GUI
-
+        try:
+            self.threshold_textbox.insert(0, str(self.change_threshold)) #insert a default value of 0.3 in the threshold textbox for testing purposes, will be removed in the final version of the GUI
+        except:
+            self.threshold_textbox.insert(0, "0.3") #insert the default value of 0.3 in the threshold textbox
+        self.threshold_textbox.bind("<Return>", lambda event: self.update_graph()) #bind the Enter key to the threshold textbox to update the graph with the new threshold value when the user presses Enter after entering a new threshold value, for quick adjustments to the analysis parameters and re-running the analysis without having to navigate back to the project setup page
 
         # LOOKAHEAD
         self.lookahead_label = ctk.CTkLabel(master = self.parameters_frame,
@@ -353,8 +279,11 @@ class GuiBuild(ctk.CTk):
                                                         font=ctk.CTkFont(size=16),
                                                         fg_color=default_widget_color) #textbox to enter the lookahead frames for the analysis
         self.lookahead_textbox.grid(row=1, column=1, padx=20, pady=10, sticky=labelsalignment) #grid the lookahead textbox in the parameters frame with padding
-        self.lookahead_textbox.insert(0, "7") #insert a default value of 7 in the lookahead textbox for testing purposes, will be removed in the final version of the GUI
-        
+        try:
+            self.lookahead_textbox.insert(0, str(self.lookahead_frames)) #insert a default value of 7 in the lookahead textbox for testing purposes, will be removed in the final version of the GUI
+        except:
+            self.lookahead_textbox.insert(0, "7") #insert the default value of 7 in the lookahead textbox
+        self.lookahead_textbox.bind("<Return>", lambda event: self.update_graph()) #bind the Enter key to the lookahead textbox to update the graph with the new lookahead value when the user presses Enter after entering a new lookahead value, for quick adjustments to the analysis parameters and re-running the analysis without having to navigate back to the project setup page
 
         # RELEASE 
         self.release_label = ctk.CTkLabel(master = self.parameters_frame, 
@@ -366,7 +295,11 @@ class GuiBuild(ctk.CTk):
                                                         font=ctk.CTkFont(size=16),
                                                         fg_color=default_widget_color) #textbox to enter the release frames for the analysis
         self.release_textbox.grid(row=2, column=1, padx=20, pady=10, sticky=labelsalignment) #grid the release textbox in the parameters frame with padding
-        self.release_textbox.insert(0, "5") #insert a default value of 5 in the release textbox for testing purposes, will be removed in the final version of the GUI
+        try:
+            self.release_textbox.insert(0, str(self.release_frames)) #insert a default value of 5 in the release textbox for testing purposes, will be removed in the final version of the GUI
+        except:
+            self.release_textbox.insert(0, "5") #insert the default value of 5 in the release textbox
+        self.release_textbox.bind("<Return>", lambda event: self.update_graph()) #bind the Enter key to the release textbox to update the graph with the new release value when the user presses Enter after entering a new release value, for quick adjustments to the analysis parameters and re-running the analysis without having to navigate back to the project setup page
         # ---------------------------------------------------------------------------
 
         # ----------------- Analysis selections ------------------
@@ -383,6 +316,8 @@ class GuiBuild(ctk.CTk):
                                                     font=ctk.CTkFont(size=20), 
                                                     fg_color=default_widget_color,
                                                     variable=self.analysis_selection_tkvar[0]) #checkbox for white balance analysis
+        if self.selected_analyses[0]: #if white balance analysis is selected, check the white balance analysis checkbox
+            self.wb_analysis_checkbox.select() #select the white balance analysis checkbox
         self.wb_analysis_checkbox.grid(row=0, column=0, padx=20, pady=10) #alignment
 
         #exp analysis checkbox ----
@@ -391,13 +326,100 @@ class GuiBuild(ctk.CTk):
                                                      font=ctk.CTkFont(size=20), 
                                                      fg_color=default_widget_color,
                                                      variable=self.analysis_selection_tkvar[1]) #checkbox for exposure analysis
+        if self.selected_analyses[1]: #if exposure analysis is selected, check the exposure analysis checkbox
+            self.exp_analysis_checkbox.select() #select the exposure analysis checkbox
         self.exp_analysis_checkbox.grid(row=0, column=1, padx=20, pady=10) #alignment
 
+# ---------------------------------------------------------------------------
 
+    def plot_graph(self):
+        # PLOT THE ANALYSIS RESULTS
+        # WB plots
+        if self.selected_analyses[0]: #if white balance analysis is selected, plot the white balance analysis results
+            self.graph.plot(range(len(self.avg_values[0])), self.avg_values[0], label='CCT', color='red') #plot the CCT channel
+            for start, end in zip(self.changes[0][0], self.changes[0][1]): #add vertical lines for each detected change  
+                self.graph.axvline(x=start, color='g', linestyle='--') #add a vertical line to indicate the start 
+                self.graph.axvline(x=end, color='r', linestyle='--') #add a vertical line to indicate the end 
+                self.graph.axvspan(start, end, color='y', alpha=0.3, label='WB Change') #highlight the change duration
+
+        # Exposure plots
+        if self.selected_analyses[1]: #if exposure analysis is selected, plot the exposure analysis results
+            self.graph.plot(range(len(self.avg_values[1])), self.avg_values[1], label='Y Median', color='orange') #plot the Y channel 
+            for start, end in zip(self.changes[1][0], self.changes[1][1]): #add vertical lines for each detected change 
+                self.graph.axvline(x=start, color='c', linestyle='--') #add a vertical line to indicate the start 
+                self.graph.axvline(x=end, color='m', linestyle='--') #add a vertical line to indicate the end 
+                self.graph.axvspan(start, end, color='y', alpha=0.3, label='Exposure Change') #highlight the change duration
         
+        self.graph.axvline(x=self.reference_frame_num, color='k', linestyle='--', label='Reference Frame') #plot the reference frame
+        if self.graph_canvas.get_tk_widget().winfo_exists():
+            self.graph_canvas.draw() #draw the plots on the canvas
+
+# ----- Update graph function
+    def update_graph(self):
+        self.get_current_settings() #call the function to get the current settings from the analysis settings widgets before updating the graph, to ensure that the graph is updated with the most up-to-date settings
+        self.changes, self.avg_values = Analysis(self.shot_path).detect_changes(self.selected_analyses, self.change_threshold, self.lookahead_frames, self.release_frames) #call the detect_changes function from the Analysis class to perform change detection on the analyzed data with a specified threshold and store the results in a variable for use in the GUI
+        self.graph.clear() #clear the current graph before plotting the updated analysis results
+        self.plot_graph() #call the function to plot the updated analysis results
+
+# ----- Get the current settings function
+    def get_current_settings(self):
+        self.selected_analyses = [var.get() for var in self.analysis_selection_tkvar] #get the values of the analysis selection checkboxes
+        
+        if not any([self.shot_path]): #if no shot is selected, show a warning message
+            tk.messagebox.showwarning("No Shot Selected", "Please select a shot to start the analysis.")
+            return
+
+        if not any(self.selected_analyses): #if no analyses are selected, show a warning message
+            tk.messagebox.showwarning("No Analysis Selected", "Please select at least one analysis to start.")
+            return
+        
+        if self.selected_analyses[0] and self.selected_analyses[1]: #if both analyses are selected, print messages (placeholder for starting the analyses)
+            print("Selected WB and Exposure...") #placeholder for starting the white balance analysis
+
+        elif self.selected_analyses[0]: #if only white balance analysis is selected, print a message (placeholder for starting the white balance analysis)
+            print("Selected WB...") #placeholder for starting the white balance analysis
+        elif self.selected_analyses[1]: #if only exposure analysis is selected, print a message (placeholder for starting the exposure analysis)
+            print("Selected Exposure...") #placeholder for starting the exposure analysis
+        
+            
+        
+        threshold_text = self.threshold_textbox.get().strip()
+        if threshold_text == "":
+            tk.messagebox.showwarning("No Threshold Value", "Please enter a threshold value.")
+            return
+        try:
+            self.change_threshold = float(threshold_text)
+        except ValueError:
+            tk.messagebox.showwarning("Invalid Threshold Value", "Please enter a valid float threshold value.")
+            return
+        
+
+        lookahead_text = self.lookahead_textbox.get().strip()
+        if lookahead_text == "":
+            tk.messagebox.showwarning("No Lookahead Value", "Please enter a lookahead value.")
+            return
+        try:            
+            self.lookahead_frames = int(lookahead_text)
+        except ValueError:
+            tk.messagebox.showwarning("Invalid Lookahead Value", "Please enter a valid integer lookahead value.")
+            return
+        
+
+        release_text = self.release_textbox.get().strip()
+        if release_text == "":
+            tk.messagebox.showwarning("No Release Value", "Please enter a release value.")
+            return
+        try:
+            self.release_frames = int(release_text)
+        except ValueError:
+            tk.messagebox.showwarning("Invalid Release Value", "Please enter a valid integer release value.")
+            return
+            
+
 # ----- Function to show an error message in a message box -----
     def external_error_message(self, message):
         tk.messagebox.showerror("Error", message) #function to show an error message in a message box
+
 
 # ------ Function to reload the reference frame number from the timeline marker -----
     def reload_reference_frame(self):
@@ -549,7 +571,7 @@ class Analysis:
     def decode_with_signalstats(self):
         out = (
             ffmpeg
-            .input(self.shot_path)
+            .input(self.shot_path, hwaccel='auto')
             .filter('scale', -2, 240)
             .filter("colorspace", all='bt709', range='pc', fast=0)
             .filter('signalstats')
@@ -697,12 +719,16 @@ class Analysis:
         if analysis_type[1]: # if exposure analysis is selected, use the Y median data for change detection
             if self.Y_avg_values is None: # if the Y average values are not available, show an error message and return empty change lists
                 self.perform_analysis(analysis_type) # perform analysis if no data is available
+            threshold = threshold * ((2 ** self.bit_depth)/100) # adjust the threshold for change detection based on the bit depth of the video, since the range of the Y values can vary based on the bit depth (e.g., 0-255 for 8-bit, 0-1023 for 10-bit, etc.)
+
             # Change detection loop ---------------------------------------------------------------------------------------------------
             Y_changes = change_detection_loop(self.Y_derived_data) # call the change detection loop function to detect changes in the Y average data and store the detected changes in a variable for use in the GUI
         
         if analysis_type[0]: # if white balance analysis is selected, use the RGB median data for change detection
             if self.CCT_avg_values is None: # if the RGB average values are not available, show an error message and return empty change lists
                 self.perform_analysis(analysis_type) # call the RGB_analyze function to get the RGB average values for each frame and store it in a variable for use in change detection
+            threshold = threshold * (19000/100) # adjust the threshold for change detection based on the bit depth of the video, since the range of the RGB values can vary based on the bit depth (e.g., 0-255 for 8-bit, 0-1023 for 10-bit, etc.)
+
             # Change detection loop ---------------------------------------------------------------------------------------------------
             
             
