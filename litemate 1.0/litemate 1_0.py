@@ -3,6 +3,10 @@
 # PREPARE RESOLVE SCRIPT ENVIRONMENT
 
 
+
+
+from ast import In
+
 import DaVinciResolveScript as dvr_script
 
 
@@ -23,7 +27,7 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg #matplotlib back
 import keyboard #keyboard is a library for detecting and simulating keyboard events in Python, used for implementing keyboard shortcuts in the GUI (not yet implemented)
 import json #json is a library for working with JSON data in Python, used for loading and saving analysis results in JSON format in the Analysis class
 import os #os is a library for interacting with the operating system in Python, used for file path manipulations and other OS-related functionality in the GUI and Analysis class
-import colorsys #colorsys is a library for converting between different color systems in Python, used for converting CCT values to RGB values in the Analysis class (not yet implemented)
+import math #math is a library for mathematical functions in Python, used for calculating the x-axis ticks for the analysis results plot in the GUI
 
 
 default_bg_color = "#001523"
@@ -57,7 +61,6 @@ class GuiBuild(ctk.CTk):
         self.home.configure(bg_color=default_bg_color, fg_color=default_fg_color) #configure the background color of the home frame
 
         self.title(f"LiteMate {version}") #set the title of the window
-        self.iconbitmap(r'litemate 1.0\stardust.ico') #set the window icon, will be replaced with a function to set the window icon in the final version of the GUI
         self.project_setup_page()
 # ---- MAIN PAGE AND FUNCTION DEFINITIONS ----
     def project_setup_page(self):
@@ -159,7 +162,7 @@ class GuiBuild(ctk.CTk):
         # Send to Resolve button -----------------------------
         def btncmd_send_to_resolve():
             try:
-                DaVinci().send(self.changes, self.selected_analyses) #function to send the analysis results to DaVinci Resolve, will be replaced with a function to actually send the results to Resolve and create timeline markers or other indicators based on the detected changes in the analysis data
+                DaVinci().send(self.changes, self.selected_analyses, self.keyframes) #function to send the analysis results to DaVinci Resolve, will be replaced with a function to actually send the results to Resolve and create timeline markers or other indicators based on the detected changes in the analysis data
                 tk.messagebox.showinfo("Success", "Analysis results sent to DaVinci Resolve successfully.") #show a success message box if the analysis results were sent to Resolve successfully   
             except Exception as e:
                 tk.messagebox.showerror("Error", f"An error occurred while sending analysis results to DaVinci Resolve: {str(e)}") #show an error message box if there was an error sending the analysis results to Resolve, with the error message for debugging purposes
@@ -198,11 +201,12 @@ class GuiBuild(ctk.CTk):
 # Function to start the frame by frame analysis
     def start_analysis(self):
         self.get_current_settings() #call the function to get the current settings from the analysis settings widgets before starting the analysis, to ensure that the analysis is performed with the most up-to-date settings
-        changes, avg_values = Analysis(self.shot_path).detect_changes(self.selected_analyses, self.change_threshold, self.lookahead_frames, self.release_frames) #call the detect_changes function from the Analysis class to perform change detection on the analyzed data with a specified threshold and store the results in a variable for use in the GUI
+        changes, avg_values, keyframes = Analysis(self.shot_path).detect_changes(self.selected_analyses, self.change_threshold, self.lookahead_frames, self.release_frames, self.reference_frame_num) #call the detect_changes function from the Analysis class to perform change detection on the analyzed data with a specified threshold and store the results in a variable for use in the GUI
         print("Analysis completed. Displaying results...") #placeholder for displaying the analysis results
         
         self.changes = changes
         self.avg_values = avg_values
+        self.keyframes = keyframes
         self.show_analysis_data_page(self.changes, self.avg_values) #call the show_analysis_data function to display the
 
 # Analysis import
@@ -335,29 +339,47 @@ class GuiBuild(ctk.CTk):
     def plot_graph(self):
         # PLOT THE ANALYSIS RESULTS
         # WB plots
+        self.graph.grid(True, color = "#84848482", which='both', linestyle='-', linewidth=0.2) #add a grid to the graph for better readability
         if self.selected_analyses[0]: #if white balance analysis is selected, plot the white balance analysis results
-            self.graph.plot(range(len(self.avg_values[0])), self.avg_values[0], label='CCT', color='red') #plot the CCT channel
+            
+            self.graph.plot(range(len(self.avg_values[0])), self.avg_values[0], label='CCT', color='orange', linewidth=2) #plot the CCT channel
+            
+            self.graph.set_ylabel('CCT (K)', fontsize=18) #set the y-axis label
+            ticks = self.graph.get_yticks() #get the current y-axis ticks
+            self.graph.set_yticks(range(int(ticks[0]), int(ticks[-1]), int((ticks[1] - ticks[0]) / 10)), minor=True) #set minor ticks on the y-axis for better readability of the exposure analysis plot
+
             for start, end in zip(self.changes[0][0], self.changes[0][1]): #add vertical lines for each detected change  
                 self.graph.axvline(x=start, color='g', linestyle='--') #add a vertical line to indicate the start 
                 self.graph.axvline(x=end, color='r', linestyle='--') #add a vertical line to indicate the end 
-                self.graph.axvspan(start, end, color='y', alpha=0.3, label='WB Change') #highlight the change duration
+                self.graph.axvspan(start, end, color='y', alpha=0.15, label='WB Change') #highlight the change duration
 
         # Exposure plots
         if self.selected_analyses[1]: #if exposure analysis is selected, plot the exposure analysis results
-            self.graph.plot(range(len(self.avg_values[1])), self.avg_values[1], label='Y Median', color='orange') #plot the Y channel 
+            
+            self.graph.plot(range(len(self.avg_values[1])), self.avg_values[1], label='Y Median', color='orange', linewidth=2) #plot the Y channel 
+            
+            self.graph.set_ylabel('Luminance value', fontsize=18) #set the y-axis label
+            ticks = self.graph.get_yticks() #get the current y-axis ticks
+            self.graph.set_yticks(range(int(ticks[0]), int(ticks[-1]), int((ticks[1] - ticks[0]) / 10)), minor=True) #set minor ticks on the y-axis for better readability of the exposure analysis plot
+
             for start, end in zip(self.changes[1][0], self.changes[1][1]): #add vertical lines for each detected change 
                 self.graph.axvline(x=start, color='c', linestyle='--') #add a vertical line to indicate the start 
                 self.graph.axvline(x=end, color='m', linestyle='--') #add a vertical line to indicate the end 
-                self.graph.axvspan(start, end, color='y', alpha=0.3, label='Exposure Change') #highlight the change duration
+                self.graph.axvspan(start, end, color='y', alpha=0.15, label='Exposure Change') #highlight the change duration
+
+        self.graph.set_xlabel('Frame Number', fontsize=18) #set the x-axis label
+        ticks = self.graph.get_xticks() #get the current x-axis ticks
+        self.graph.set_xticks(ticks=range(int(ticks[1]), int(ticks[-2]), int((ticks[1] - ticks[0]) / 10)), minor=True) #set the x-axis ticks to show every 10% of the frames for better readability, with a minimum step of 1 to avoid issues with very short videos
         
-        self.graph.axvline(x=self.reference_frame_num, color='k', linestyle='--', label='Reference Frame') #plot the reference frame
+        self.graph.axvline(x=self.reference_frame_num, color="#001E6F", linestyle='--', label='Reference Frame') #plot the reference frame
+        
         if self.graph_canvas.get_tk_widget().winfo_exists():
             self.graph_canvas.draw() #draw the plots on the canvas
 
 # ----- Update graph function
     def update_graph(self):
         self.get_current_settings() #call the function to get the current settings from the analysis settings widgets before updating the graph, to ensure that the graph is updated with the most up-to-date settings
-        self.changes, self.avg_values = Analysis(self.shot_path).detect_changes(self.selected_analyses, self.change_threshold, self.lookahead_frames, self.release_frames) #call the detect_changes function from the Analysis class to perform change detection on the analyzed data with a specified threshold and store the results in a variable for use in the GUI
+        self.changes, self.avg_values, self.keyframes = Analysis(self.shot_path).detect_changes(self.selected_analyses, self.change_threshold, self.lookahead_frames, self.release_frames, self.reference_frame_num) #call the detect_changes function from the Analysis class to perform change detection on the analyzed data with a specified threshold and store the results in a variable for use in the GUI
         self.graph.clear() #clear the current graph before plotting the updated analysis results
         self.plot_graph() #call the function to plot the updated analysis results
 
@@ -464,8 +486,7 @@ class Analysis:
         self.stream.thread_count = 0  # AV 0 = auto (use all cores)
 
 
-        self.Y_avg_values = None # initialize a variable to store the Y average values for use in change detection
-        self.CCT_avg_values = None # initialize a variable to store the CCT average values for use in change detection
+
     ## LOAD ANALYSIS FUNCTION TO LOAD ANALYSIS RESULTS FROM A JSON FILE ##
     def load_analysis_json(self):
         json_file_path = filedialog.askopenfilename(title="Load Analysis Results", filetypes=[("JSON files", "*.json")]) # open file dialog to select the analysis results file to load
@@ -522,6 +543,8 @@ class Analysis:
         #print(self.RGB_avg_values[0])
         #print(self.Y_avg_values)
 
+
+
     ## Y ANALYZE FOOTAGE FUNCTION ##
     def Y_analyze(self):
                
@@ -535,10 +558,13 @@ class Analysis:
                 Y_avg_values.append(float(match.group(1))) # extract the Y average value from the matched line, convert it to a float, and append it to the list of Y average values for each frame
 
         #print(Y_avg_values)
-        if len(Y_avg_values) == self.frame_count: # if the number of Y average values matches the total frame count of the video, return the Y average values for use in the GUI, otherwise show an error message   
+        if abs(len(Y_avg_values) - self.frame_count) <= 1: # if the number of Y average values matches the total frame count of the video, return the Y average values for use in the GUI, otherwise show an error message   
+            self.frame_count = len(Y_avg_values) # update the frame count variable with the number of Y average values for accurate calculations in the analysis, since there may be cases where the number of Y average values does not match the total frame count of the video due to issues with the ffmpeg output or the analysis process, so we need to update the frame count variable to match the number of Y average values for accurate calculations in the analysis
             return Y_avg_values
         else:
-            GuiBuild.external_error_message(self, "Backend Error: Inconsistent frame count in Y analysis results.") # show an error message if the number of Y average values does not match the total frame count of the video
+            string = f"Backend Error: Inconsistent frame count in Y analysis results. Expected: {self.frame_count}, Got: {len(Y_avg_values)}" # initialize an error message string to show in the error message box
+
+            GuiBuild.external_error_message(self, string) # show an error message if the number of Y average values does not match the total frame count of the video
             return None
         
     ## WB ANALYZE FOOTAGE FUNCTION ##
@@ -559,10 +585,13 @@ class Analysis:
                     YUV_avg_values[i].append(float(match.group(1))) # extract the YUV average value from the matched line, convert it to a float, and append it to the list of YUV average values for each frame
                 #print(YUV_avg_values)
         
-        if len(YUV_avg_values[0]) == self.frame_count: # if the number of YUV average values matches the total frame count of the video, return the YUV average values for use in the GUI, otherwise show an error message   
+        if abs(len(YUV_avg_values[0]) - self.frame_count) <= 1: # if the number of YUV average values matches the total frame count of the video, return the YUV average values for use in the GUI, otherwise show an error message   
+            self.frame_count = len(YUV_avg_values[0]) # update the frame count variable with the number of YUV average values for accurate calculations in the analysis
             return YUV_avg_values
         else:
-            string = "Backend Error: Inconsistent frame count in YUV analysis results.\n" + f"Expected: {self.frame_count}, Got: {len(YUV_avg_values[0])}" # initialize an error message string to show in the error message box
+            string = f"Backend Error: Inconsistent frame count in YUV analysis results. Expected: {self.frame_count}, Got: {len(YUV_avg_values[0])}" # initialize an error message string to show in the error message box
+            print(string) # print the error message for debugging purposes, will be removed in the final version of the GUI
+
             GuiBuild.external_error_message(self, string) # show an error message if the number of YUV average values does not match the total frame count of the video
             return None
         
@@ -573,7 +602,7 @@ class Analysis:
             ffmpeg
             .input(self.shot_path, hwaccel='auto')
             .filter('scale', -2, 240)
-            .filter("colorspace", all='bt709', range='pc', fast=0)
+            #.filter("colorspace", all='bt709', range='pc', fast=0)
             .filter('signalstats')
             .filter("metadata", "print")
             .output("null", f="null")
@@ -587,6 +616,7 @@ class Analysis:
         output_lines = []
         for line in out.stderr:
             line = line.decode("utf-8") # decode the line from bytes to string format for processing
+            #print(line) # print the decoded line for debugging purposes, will be removed in the final version of the GUI
             output_lines.append(line) # store the decoded lines in a list for processing the analysis data in the GUI, since the ffmpeg output is a generator that can only be iterated through once, we need to store the lines in a list to loop through them again for each analysis type if both analyses are selected
 
 
@@ -660,11 +690,22 @@ class Analysis:
         return CCT # return the calculated CCT value for use in change detection on the white balance data
 
 
+    def eval_WB_correction(self, in_keyframe, out_keyframe, reference_frame):
+        in_CCT_corr = self.CCT_avg_values[reference_frame] - self.CCT_avg_values[in_keyframe] # get the CCT value for the input keyframe from the list of CCT average values for use in evaluating the white balance correction
+        out_CCT_corr = self.CCT_avg_values[reference_frame] - self.CCT_avg_values[out_keyframe] # get the CCT value for the output keyframe from the list of CCT average values for use in evaluating the white balance correction
+        return in_CCT_corr, out_CCT_corr # return the calculated CCT correction values for the input and output keyframes for use in evaluating the effectiveness of the white balance correction
+
+    def eval_exposure_correction(self, in_keyframe, out_keyframe, reference_frame):
+        in_gamma_corr = (math.log(self.Y_avg_values[reference_frame]) / math.log(self.Y_avg_values[in_keyframe])) - 1 # calculate the gamma correction value for the input keyframe based on the Y average values for the input keyframe and the reference frame, using a logarithmic scale to determine the correction factor for the exposure adjustment
+        out_gamma_corr = (math.log(self.Y_avg_values[reference_frame]) / math.log(self.Y_avg_values[out_keyframe])) - 1 # calculate the gamma correction value for the output keyframe based on the Y average values for the output keyframe and the reference frame, using a logarithmic scale to determine the correction factor for the exposure adjustment
+        
+        return in_gamma_corr, out_gamma_corr # return the calculated gamma correction values for the input and output keyframes for use in evaluating the effectiveness of the exposure correction
+
     # ---- change detection function, which takes the analyzed data and the threshold as input and returns a list of detected changes
-    def detect_changes(self, analysis_type, threshold, lookahead_frames, release_frames):
+    def detect_changes(self, analysis_type, threshold, lookahead_frames, release_frames, reference_frame):
         
         def change_detection_loop(derived_data):
-            zerotolerance = threshold 
+            zerotolerance = 0.12 
             changes_list = [[], []] #list to store the detected changes, index 0 for change starts and index 1 for change ends
             change_ongoing_flag = False # initialize a flag to track whether a change is currently ongoing
             direction = 0 # initialize a variable to track the direction of the change, 0 = no change, 1 = positive change, -1 = negative change
@@ -717,39 +758,60 @@ class Analysis:
         
         
         if analysis_type[1]: # if exposure analysis is selected, use the Y median data for change detection
-            if self.Y_avg_values is None: # if the Y average values are not available, show an error message and return empty change lists
-                self.perform_analysis(analysis_type) # perform analysis if no data is available
+            try:
+                if self.Y_avg_values:
+                   print("Y average values already calculated, skipping analysis...") # print a message indicating that the Y average values have already been calculated and the analysis will be skipped to save time, since the Y average values are needed for change detection and if they have already been calculated, we can skip the analysis and go straight to change detection
+                   pass 
+            except:
+                self.perform_analysis(analysis_type)
+            
             threshold = threshold * ((2 ** self.bit_depth)/100) # adjust the threshold for change detection based on the bit depth of the video, since the range of the Y values can vary based on the bit depth (e.g., 0-255 for 8-bit, 0-1023 for 10-bit, etc.)
 
             # Change detection loop ---------------------------------------------------------------------------------------------------
             Y_changes = change_detection_loop(self.Y_derived_data) # call the change detection loop function to detect changes in the Y average data and store the detected changes in a variable for use in the GUI
-        
+            
+            Y_corr_keyframes = [[], []] # initialize a variable to store the keyframes for the detected changes in the Y data for use in evaluating the exposure correction in the GUI
+            for change_start, change_end in zip(Y_changes[0], Y_changes[1]): # loop through the detected change start and end frame IDs for the Y data and print them for debugging purposes, will be removed in the final version of the GUI
+                in_keyframe, out_keyframe = self.eval_exposure_correction(change_start, change_end, reference_frame) # call the eval_exposure_correction function to calculate the gamma correction values for the input and output keyframes based on the detected change start and end frame IDs and the reference frame ID
+                Y_corr_keyframes[0].append(in_keyframe) # append the input keyframe data
+                Y_corr_keyframes[1].append(out_keyframe) # append the output keyframe data
+
+
         if analysis_type[0]: # if white balance analysis is selected, use the RGB median data for change detection
-            if self.CCT_avg_values is None: # if the RGB average values are not available, show an error message and return empty change lists
-                self.perform_analysis(analysis_type) # call the RGB_analyze function to get the RGB average values for each frame and store it in a variable for use in change detection
+            try:
+                if self.CCT_avg_values:
+                    pass
+            except:
+                self.perform_analysis(analysis_type)
+            
             threshold = threshold * (19000/100) # adjust the threshold for change detection based on the bit depth of the video, since the range of the RGB values can vary based on the bit depth (e.g., 0-255 for 8-bit, 0-1023 for 10-bit, etc.)
 
             # Change detection loop ---------------------------------------------------------------------------------------------------
-            
-            
-
             WB_changes = change_detection_loop(self.CCT_derived_data) # call the change detection loop function to detect changes in the RGB average data and store the detected changes in a variable for use in the GUI
         
-
+            WB_corr_keyframes = [[], []] # initialize a variable to store the keyframes for the detected changes in the RGB data for use in evaluating the white balance correction in the GUI
+            for change_start, change_end in zip(WB_changes[0], WB_changes[1]): # loop through the detected change start and end frame IDs for the RGB data and print them for debugging purposes, will be removed in the final version of the GUI
+                in_keyframe, out_keyframe = self.eval_WB_correction(change_start, change_end, reference_frame) # call the eval_WB_correction function to calculate the CCT correction values for the input and output keyframes based on the detected change start and end frame IDs and the reference frame ID
+                WB_corr_keyframes[0].append(in_keyframe) # append the input keyframe data
+                WB_corr_keyframes[1].append(out_keyframe) # append the output keyframe data
                
         if not analysis_type[0]: # if white balance analysis is not selected, set the HSL changes list to empty lists
             WB_changes = [[], []]
+            WB_corr_keyframes = [[], []]
             self.CCT_avg_values = [[], [], []] # set the RGB average values to empty lists if white balance analysis is not selected for use in the GUI
 
         if not analysis_type[1]: # if exposure analysis is not selected, set the Y changes list to empty lists
             Y_changes = [[], []]
+            Y_corr_keyframes = [[], []]
             self.Y_avg_values = [[], [], []] # set the Y average values to empty lists if exposure analysis is not selected for use in the GUI
         
         changes = [WB_changes, Y_changes] # combine the detected changes for both analyses into a single list to return to the GUI
+        keyframes = [WB_corr_keyframes, Y_corr_keyframes] # combine the keyframe correction data for both analyses into a single list to return to the GUI for use in evaluating the corrections
         print(changes) # print the detected changes for debugging purposes, will be removed in the final version of the GUI
+        print(keyframes) # print the keyframe correction data for debugging purposes, will be removed in the final version of the GUI
         avg_values = [self.CCT_avg_values, self.Y_avg_values] # store the average values for both analyses in a variable to be returned to the GUI for use in the visualization of the analysis data
 
-        return changes, avg_values # return the list of detected changes and average values for use in the GUI
+        return changes, avg_values, keyframes # return the list of detected changes and average values for use in the GUI
 
 
 
@@ -760,29 +822,32 @@ class DaVinci:
         self.projectManager = resolve.GetProjectManager()  # Get the project manager    
         self.project = self.projectManager.GetCurrentProject() # Get the current project
         self.timeline = self.project.GetCurrentTimeline() # Get the new timeline
-        
+        self.timeline_video = self.timeline.GetItemListInTrack("video", 1) # Get the file path of the footage in the video track of the timeline
+
     
     def getvideo(self):
-        timeline_video = self.timeline.GetItemListInTrack("video", 1) # Get the file path of the footage in the video track of the timeline
-        video_mediapool = timeline_video[0].GetMediaPoolItem() # Get the media pool item for the footage in the video track of the timeline
+        #self.timeline_video = self.timeline.GetItemListInTrack("video", 1) # Get the file path of the footage in the video track of the timeline
+        video_mediapool = self.timeline_video[0].GetMediaPoolItem() # Get the media pool item for the footage in the video track of the timeline
         footage_path = os.path.normpath(video_mediapool.GetClipProperty('File Path')) # Get the file path of the footage from the media pool item
         reference_marker_id = self.get_reference_marker() # Get the reference marker ID from the timeline for use in the analysis
-        print(timeline_video[0].GetName()) # Print the file path of the footage for debugging purposes
+        print(self.timeline_video[0].GetName()) # Print the file path of the footage for debugging purposes
         print(footage_path) # Print the file path of the footage for debugging purposes
         print(reference_marker_id) # Print the markers from the timeline for debugging purposes
         
         return footage_path, reference_marker_id # Return the footage path and the reference marker ID for use in the analysis
 
-    def send(self, change_data, selected_analyses):
+    def send(self, change_data, selected_analyses, keyframes):
         if selected_analyses[0]: # if white balance analysis is selected, add markers for the detected changes in the RGB data
-             for start, end in zip(change_data[0][0], change_data[0][1]): # Loop through the detected change start frame IDs and add markers to the timeline
+             for start, end, in_key, out_key in zip(change_data[0][0], change_data[0][1], keyframes[0][0], keyframes[0][1]): # Loop through the detected change start frame IDs and add markers to the timeline
                 #print(start, end)
-                self.timeline.AddMarker(start, 'Yellow', 'WB change', 'Notes', end-start, 'Secret_Word') # Add markers to the timeline at the specified frame IDs
-                
+                notes = f"WB change:\nIn temp keyframe: temp = {in_key:.2f}K\nOut temp keyframe: temp = {out_key:.2f}K" # initialize a string to show in the marker note for the detected white balance change, including the calculated CCT correction values for the input and output keyframes for reference in evaluating the effectiveness of the white balance correction
+                self.timeline_video[0].AddMarker(start, 'Pink', 'WB change', notes, end-start, 'Secret_Word') # Add markers to the timeline at the specified frame IDs
+
         if selected_analyses[1]: # if exposure analysis is selected, add markers for the detected changes in the Y data
-             for start, end in zip(change_data[1][0], change_data[1][1]): # Loop through the detected change start frame IDs and add markers to the timeline
+             for start, end, in_key, out_key in zip(change_data[1][0], change_data[1][1], keyframes[1][0], keyframes[1][1]): # Loop through the detected change start frame IDs and add markers to the timeline
                 #print(start, end)
-                self.timeline.AddMarker(start, 'Rose', 'Exposure change', 'Notes', end-start, 'Secret_Word') # Add markers to the timeline at the specified frame IDs
+                notes = f"Exposure change:\nIn keyframe: gamma = {in_key:.2f}\nOut keyframe: gamma = {out_key:.2f}" # initialize a string to show in the marker note for the detected exposure change, including the calculated exposure correction values for the input and output keyframes for reference in evaluating the effectiveness of the exposure correction
+                self.timeline_video[0].AddMarker(start, 'Mint', 'Exposure change', notes, end-start, 'Secret_Word') # Add markers to the timeline at the specified frame IDs
 
     def get_reference_marker(self):
         markers = self.timeline.GetMarkers() # Get the markers from the timeline

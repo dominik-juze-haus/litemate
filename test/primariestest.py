@@ -9,10 +9,10 @@ import customtkinter as ctk #custom tkinter, pretty
 import keyboard #keyboard input
 import matplotlib.pyplot as plt #plotting
 import os #os
-import torch #pytorch
+#import torch #pytorch
 
 
-container = av.open(r'I:\CODING\LiteMate\Footage\pyxis_exposure_change.mov')
+container = av.open(r'I:\CODING\LiteMate\Footage\jarosovci_exposure_change.mov')
 stream = container.streams.video[0]
 fps = float(stream.average_rate)
 time_base = stream.time_base
@@ -22,7 +22,7 @@ print(f"Frame count: {frame_count}")
 
 #curent_frame
 #frame_number = stream.frames - 10
-frame_number = 340
+frame_number = 200
 frame_t = int(frame_number / fps / time_base)
 container.seek(frame_t, any_frame=False, stream=stream)
 
@@ -33,7 +33,7 @@ for frame in container.decode(stream):
 
 #reference_frame
 #frame_number = 30
-frame_number = 500
+frame_number = 21
 frame_t = int(frame_number / fps / time_base)
 container.seek(frame_t, any_frame=False, stream=stream)
 
@@ -65,6 +65,9 @@ gain = 50 #vals from 0 to 100
 
 #median version
 gamma = np.log10(median_reference_frame_array) / np.log10(median_frame_array)
+gamma_corr = 1 - gamma
+gamma_corr_davinci = gamma_corr
+print(f"Calculated gamma: {gamma_corr_davinci}")
 #mean version
 #gamma = np.log10(mean_reference_frame_array) / np.log10(mean_frame_array)
 if np.abs(median_diff) <= 10:
@@ -74,9 +77,9 @@ if np.abs(median_diff) <= 10:
     
 
 bit_lift = 0 +((2*lift-100) / 100)
-#bit_gamma = 1 + ((2*gamma-100) / 100)
-bit_gamma = 2
-bit_gain = 1 + ((2*gain-100) / 100)
+bit_gamma = 2.2 + ((2*gamma_corr_davinci-100) / 100)
+#bit_gamma = 1.5
+bit_gain = 1.4 
 if bit_gamma == 0:  
     bit_gamma = 0.01
 

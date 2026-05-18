@@ -10,12 +10,12 @@ import customtkinter as ctk #custom tkinter, pretty
 import keyboard #keyboard input
 import matplotlib.pyplot as plt #plotting
 import os #os
-import torch #pytorch
+#import torch #pytorch
 import json #json
 #from CTkListbox import * #listbox for custom tkinter
 
 
-CCT_to_RGB_table = json.load(open("kelvin_table.json")) #CCT to RGB values
+CCT_to_RGB_table = json.load(open(r"I:\CODING\LiteMate\litemate\test\CODE\Analysis\lib\CCT\kelvin_table.json")) #CCT to RGB values
 table_temps = np.array(list(CCT_to_RGB_table.keys()), dtype=int) #CCT values as integers
 table_rgb_vals = np.array(list(CCT_to_RGB_table.values())) #RGB values
 
@@ -31,7 +31,7 @@ print(f"Frame count: {frame_count}")
 
 #curent_frame
 #frame_number = stream.frames - 10
-frame_number = 40
+frame_number = 277
 frame_t = int(frame_number / fps / time_base)
 container.seek(frame_t, any_frame=False, stream=stream)
 
@@ -41,8 +41,8 @@ for frame in container.decode(stream):
         break
 
 #reference_frame
-#frame_number = 30
-frame_number = stream.frames - 50
+frame_number = 72
+#frame_number = stream.frames - 50
 frame_t = int(frame_number / fps / time_base)
 container.seek(frame_t, any_frame=False, stream=stream)
 

@@ -129,16 +129,23 @@ changes = detect_changes(analyzed_data, threshold, lookahead_frames, release_fra
 
 plot_data = analyzed_data['Y_median_smooth'] # get the Y median data from the analyzed data
 fig, ax = plt.subplots() # create a figure and axis for plotting
+
+ax.grid(True, color = "#84848482", which='both', linestyle='-', linewidth=0.2)
+
 ax.plot(plot_data) # plot the Y median data
-ax.set_xlabel('Frame Number') # set the x-axis label
-ax.set_ylabel('Y Median') # set the y-axis label
-ax.set_title('Y Median Over Time') # set the title of the plot
+ax.set_xlabel('Frame Number', fontsize=18) # set the x-axis label
+ax.set_ylabel('Y values', fontsize=18) # set the y-axis label
+ax.set_title('Exposure Analysis', fontsize=22) # set the title of the plot
+ticks = ax.get_yticks() # get the y-axis ticks for labeling
+ax.set_yticks(ticks=range(int(ticks[0]), int(ticks[-1]), int((ticks[1] - ticks[0]) / 10)), minor=True) # set the y-axis ticks
+
 
 ax2 = ax.twinx() # create a second y-axis for plotting the derivative
 ax2.plot(derived_data.get(), color='orange', label='First Derivative') # plot the derivative of the Y median data on the second y-axis
-ax2.set_ylabel('Derivatives of Y Median') # set the y-axis label for the second y-axis
-
+ax2.set_ylabel('Derivative of Y values', fontsize=18) # set the y-axis label for the second y-axis
 ax2.plot(second_derived_data.get(), color='green', label = 'Second Derivative') # plot the second derivative of the Y median data on the third y-axis
+ticks = ax2.get_yticks() # get the y-axis ticks for labeling
+#ax2.set_yticks(ticks=range(int(ticks[0]), int(ticks[-1]), int((ticks[1] - ticks[0]) / 10)), minor=True) # set the y-axis ticks
 
 
 if changes: # if there are detected changes, add vertical lines to the plot to indicate the start and end of the detected changes
@@ -146,4 +153,9 @@ if changes: # if there are detected changes, add vertical lines to the plot to i
             plt.axvline(x=change, color='g', linestyle='--') # add a vertical line to indicate the start of the detected change
     for change in changes[1]:
             plt.axvline(x=change, color='r', linestyle='--') # add a vertical line to indicate the end of the detected change
+ticks = ax.get_xticks() # get the x-axis ticks for labeling
+ax.set_xticks(ticks=range(int(ticks[1]), int(ticks[-2]), int((ticks[1] - ticks[0]) / 10)), minor=True) # set the x-axis ticks
+
+
+
 plt.show() # display the plot
